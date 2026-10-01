@@ -16,6 +16,7 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>html{background:#F3F1EC}@media (prefers-color-scheme:dark){html{background:#0B1426}}body{padding-top:env(safe-area-inset-top,0px)}</style>
+<style>html{background:var(--bg)!important}body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:40}</style>
 </head>
 <body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1827,7 +1828,9 @@ body{font-size:15px;letter-spacing:-.003em}
   /* ================= GIAO DIỆN SÁNG / TỐI (v13) ================= */
   var HOST_THEME=document.documentElement.getAttribute('data-theme'),THEME='auto';
   try{THEME=localStorage.getItem('stc-theme')||'auto'}catch(e){}
-  function applyTheme(){var r=document.documentElement;if(THEME==='auto'){if(HOST_THEME)r.setAttribute('data-theme',HOST_THEME);else r.removeAttribute('data-theme')}else r.setAttribute('data-theme',THEME)}
+  function applyTheme(){var r=document.documentElement;if(THEME==='auto'){if(HOST_THEME)r.setAttribute('data-theme',HOST_THEME);else r.removeAttribute('data-theme')}else r.setAttribute('data-theme',THEME);syncChrome()}
+  function syncChrome(){var c=(getComputedStyle(document.documentElement).getPropertyValue('--bg')||'').trim();if(!c)return;var ms=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<ms.length;i++){ms[i].setAttribute('content',c);ms[i].removeAttribute('media')}}
+  if(window.matchMedia)try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',syncChrome)}catch(e){}
   function pvBits(bg,hero,ln,clip){return '<span class="hf" style="background:'+bg+(clip?';clip-path:'+clip:'')+'"><i style="left:8px;right:8px;top:8px;height:22px;background:'+hero+'"></i><i style="left:8px;right:26px;top:37px;height:4px;background:'+ln+'"></i><i style="left:8px;right:40px;top:47px;height:4px;background:'+ln+'"></i><i style="left:8px;right:32px;top:57px;height:4px;background:'+ln+'"></i></span>'}
   var PV_L=['#F3F1EC','#1F4FA3','#DDD8CC'],PV_D=['#0B1426','#2F5EE0','#2A3858'];
   function themePicker(){
@@ -2797,7 +2800,7 @@ body{font-size:15px;letter-spacing:-.003em}
   document.addEventListener('touchend',function(e){if(!tx0)return;var t=e.changedTouches[0];if(t.clientX-tx0.x>70&&Math.abs(t.clientY-tx0.y)<60){if($('bg'))closeSheet();else back()}tx0=null},{passive:true});
 
   /* ================= LƯU DỮ LIỆU (IndexedDB) ================= */
-  var APP_VER='1.0.1',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.2',DBN='so-tai-chinh',KEY='state';
   function snapshot(){return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:S,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
     S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};BUDY=d.BUDY||{};if(!d.BUDY&&d.S&&d.S.demo){BUD=JSON.parse(JSON.stringify(BUD_DEF));BUDY=JSON.parse(JSON.stringify(BUDY_DEF))}owed=d.owed||{};held=d.held||{};P=d.P||{};
