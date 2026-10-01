@@ -503,6 +503,17 @@ body{font-size:15px;letter-spacing:-.003em}
 .savebar{bottom:calc(var(--tabh,64px) + 14px + env(safe-area-inset-bottom,0px));border-top:0;background:var(--bg);padding:8px 16px 10px}
 .has-bar{padding-bottom:110px}
 .toast{bottom:calc(96px + env(safe-area-inset-bottom,0px));border-radius:14px}
+
+/* In tổng kết chuyến đi ra PDF */
+@page{margin:12mm}
+@media print{
+  :root,:root[data-theme]{--bg:#fff!important;--surface:#fff!important;--ink:#111!important;--ink-2:#333!important;--ink-3:#555!important;--line:#ccc!important;--track:#ddd!important}
+  html,body{background:#fff!important}
+  body::before,.tabbar,.head .back,.actions,#toastHost,.kbbar,.savebar,.badge,#sheetHost{display:none!important}
+  .app{padding:0!important;max-width:none}
+  .card,.list,table,tr{break-inside:avoid;box-shadow:none!important;border:1px solid #ddd!important}
+  .note{color:#555!important}
+}
 </style>
 
 <div class="app"><div id="screen"></div></div>
@@ -1869,6 +1880,8 @@ body{font-size:15px;letter-spacing:-.003em}
     h+='<div class="sec"><h2>Sao lưu ra file</h2></div><div class="list"><div class="row"><div class="name"><div>File sao lưu (JSON)</div><small class="wrap">'+(S.lastFile?'Lần cuối: '+esc(S.lastFile):'Chưa sao lưu lần nào')+'</small></div></div></div>';
     h+='<div class="actions"><button class="btn" data-act="bkFile" type="button">Sao lưu ra file</button><button class="btn" data-act="bkPick" type="button">Khôi phục từ file</button></div>';
     h+='<p class="note">File sao lưu lưu vào ứng dụng Tệp. Khôi phục sẽ thay toàn bộ dữ liệu trên máy bằng dữ liệu trong file.</p>';
+    h+='<div class="sec"><h2>Xuất Excel</h2></div><div class="actions" style="margin-top:0"><button class="btn solid" data-act="xlsx" type="button">Xuất Excel</button></div>';
+    h+='<p class="note">Để xem, lọc, phân tích trên máy tính: giao dịch, số dư tài khoản, ứng hộ và giữ hộ theo người. File này không dùng để khôi phục.</p>';
     loadGis().catch(function(){});
     return h;
   }
@@ -1973,6 +1986,127 @@ body{font-size:15px;letter-spacing:-.003em}
   function confirmRestore(d,label){
     PEND=d;var st0=d.state,n=(st0.txs||[]).length,na=(st0.accounts||[]).length;
     sheet('Khôi phục dữ liệu','<div class="warnbox">'+esc(label)+': '+na+' tài khoản, '+n+' giao dịch'+(d.savedAt?', tạo lúc '+esc(d.savedAt):'')+'. Toàn bộ dữ liệu hiện tại trên máy sẽ bị thay thế.</div><div class="actions"><button class="btn" data-act="closeSheet" type="button">Không khôi phục</button><button class="btn danger" data-act="bkRestoreOk" type="button">Khôi phục</button></div>');
+  }
+  /* ================= XUẤT EXCEL (.xlsx tự tạo, không cần thư viện) ================= */
+  var CRCT=null;
+  function crc32(u8){if(!CRCT){CRCT=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CRCT[n]=c>>>0}}var x=0xFFFFFFFF;for(var i=0;i<u8.length;i++)x=CRCT[(x^u8[i])&255]^(x>>>8);return (x^0xFFFFFFFF)>>>0}
+  function zipStore(files){
+    var enc=new TextEncoder(),parts=[],cen=[],off=0;
+    function u16(v){return [v&255,(v>>8)&255]}function u32(v){return [v&255,(v>>8)&255,(v>>16)&255,(v>>>24)&255]}
+    files.forEach(function(f){
+      var name=enc.encode(f.name),data=enc.encode(f.data),crc=crc32(data);
+      var lh=[].concat([0x50,0x4b,3,4],u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0));
+      parts.push(new Uint8Array(lh),name,data);
+      cen.push(new Uint8Array([].concat([0x50,0x4b,1,2],u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0x21),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(off))),name);
+      off+=lh.length+name.length+data.length;
+    });
+    var csize=0;cen.forEach(function(c){csize+=c.length});
+    var end=new Uint8Array([].concat([0x50,0x4b,5,6],u16(0),u16(0),u16(files.length),u16(files.length),u32(csize),u32(off),u16(0)));
+    return new Blob(parts.concat(cen,[end]),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  }
+  function xesc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]}).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'')}
+  function colName(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s}
+  function dateSerial(iso){var p=iso.split('-');return Math.round((Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(1899,11,30))/864e5)}
+  /* sheet: {name, cols:[{h,w,t:'s'|'n'|'d'}], rows:[[...]]} */
+  function sheetXml(sh){
+    var x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>';
+    sh.cols.forEach(function(c,i){x+='<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+(c.w||14)+'" customWidth="1"/>'});
+    x+='</cols><sheetData><row r="1">';
+    sh.cols.forEach(function(c,i){x+='<c r="'+colName(i)+'1" t="inlineStr" s="1"><is><t>'+xesc(c.h)+'</t></is></c>'});
+    x+='</row>';
+    sh.rows.forEach(function(r,ri){
+      var rn=ri+2;x+='<row r="'+rn+'">';
+      r.forEach(function(v,ci){
+        if(v===null||v===undefined||v==='')return;
+        var ref=colName(ci)+rn,t=sh.cols[ci].t;
+        if(t==='n'&&typeof v==='number')x+='<c r="'+ref+'" s="2"><v>'+v+'</v></c>';
+        else if(t==='d')x+='<c r="'+ref+'" s="3"><v>'+dateSerial(v)+'</v></c>';
+        else x+='<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xesc(v)+'</t></is></c>';
+      });
+      x+='</row>';
+    });
+    return x+'</sheetData><autoFilter ref="A1:'+colName(sh.cols.length-1)+(sh.rows.length+1)+'"/></worksheet>';
+  }
+  function makeXlsx(sheets){
+    var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>';
+    var wb='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>';
+    var rel='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+    var files=[];
+    sheets.forEach(function(sh,i){
+      var n=i+1;
+      ct+='<Override PartName="/xl/worksheets/sheet'+n+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+      wb+='<sheet name="'+xesc(sh.name)+'" sheetId="'+n+'" r:id="rId'+n+'"/>';
+      rel+='<Relationship Id="rId'+n+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+n+'.xml"/>';
+      files.push({name:'xl/worksheets/sheet'+n+'.xml',data:sheetXml(sh)});
+    });
+    var k=sheets.length+1;
+    rel+='<Relationship Id="rId'+k+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+    var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE3EAF6"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    return zipStore([
+      {name:'[Content_Types].xml',data:ct+'</Types>'},
+      {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+      {name:'xl/workbook.xml',data:wb+'</sheets></workbook>'},
+      {name:'xl/_rels/workbook.xml.rels',data:rel},
+      {name:'xl/styles.xml',data:styles}
+    ].concat(files));
+  }
+  function txSigned(t){
+    switch(t.type){case 'chi':case 'ung':case 'tra':return -t.amount;case 'thu':case 'giu':case 'nhan':case 'chuyen':return t.amount;case 'dc':case 'tl':return t.delta||0}
+    return t.amount||0;
+  }
+  function excelSheets(){
+    var tx=txs.map(function(t){
+      var p=t.cat?parts(t.cat):['',''],a=acc(t.acc),to=t.to?acc(t.to):null;
+      var who=t.person||(t.type==='tl'?t.who||'':'');
+      var lbl=t.type==='tl'?'Chuyến đi':(TYPE_LABEL[t.type]||t.type);
+      var note=t.note||'';if(t.type==='tl')note=(t.tripName+(t.what?' · '+t.what:'')+(note?' · '+note:''));if(t.trip)note=('Chuyến '+t.tripName+(note?' · '+note:''));
+      return [t.date,t.time||'',lbl,p[0],t.cat?p[1]:'',a?a.name:(t.trip?'(chi phí chuyến đi)':''),to?to.name:'',who,txSigned(t),note];
+    });
+    var ac=accounts.map(function(a){return [a.name,GNAME[a.group]||a.group,a.bal,a.active?'Đang dùng':'Ngừng sử dụng']});
+    Object.keys(FW).forEach(function(c){ac.push(['Ví '+c+' (tiền mặt)','Ví ngoại tệ',null,(FW[c].off?'Ngừng sử dụng · ':'')+nC(FW[c].bal,c)+' '+c])});
+    var ppl={};for(var k in owed)if(owed[k]>0)(ppl[k]=ppl[k]||[0,0])[0]=owed[k];for(var j in held)if(held[j]>0)(ppl[j]=ppl[j]||[0,0])[1]=held[j];
+    var pr=Object.keys(ppl).sort().map(function(n){return [n,ppl[n][0]||null,ppl[n][1]||null]});
+    TRIPS.filter(function(t){return t.status==='open'&&tripOwedOne(t)>0}).forEach(function(t){pr.push(['Chuyến '+t.name,tripOwedOne(t),null])});
+    return [
+      {name:'Giao dịch',cols:[{h:'Ngày',w:12,t:'d'},{h:'Giờ',w:7},{h:'Loại',w:11},{h:'Nhóm',w:20},{h:'Hạng mục',w:22},{h:'Tài khoản',w:24},{h:'Đến tài khoản',w:22},{h:'Người',w:14},{h:'Số tiền (+ vào, − ra)',w:18,t:'n'},{h:'Ghi chú',w:40}],rows:tx},
+      {name:'Tài khoản',cols:[{h:'Tài khoản',w:28},{h:'Nhóm',w:22},{h:'Số dư',w:18,t:'n'},{h:'Ghi chú',w:30}],rows:ac},
+      {name:'Ứng hộ - Giữ hộ',cols:[{h:'Người',w:24},{h:'Ứng hộ, chờ nhận lại',w:20,t:'n'},{h:'Đang giữ hộ',w:18,t:'n'}],rows:pr}
+    ];
+  }
+  function shareOrDownload(blob,name,done){
+    var file=null;try{file=new File([blob],name,{type:blob.type})}catch(e){}
+    if(file&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:name}).then(done,function(){});return}
+    var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove()},1500);if(done)done();
+  }
+  function exportExcel(){
+    var blob=makeXlsx(excelSheets());
+    shareOrDownload(blob,'so-tai-chinh_'+stamp()+'.xlsx',function(){toast('Đã tạo file Excel.')});
+  }
+
+  /* ================= TỔNG KẾT CHUYẾN ĐI: PDF (in) VÀ GỬI ================= */
+  function tripPdf(){
+    document.body.classList.add('printing');
+    var done=function(){document.body.classList.remove('printing')};
+    window.addEventListener('afterprint',done,{once:true});
+    setTimeout(function(){try{window.print()}catch(e){done();toast('iPhone chưa cho in từ app. Mở trong Safari để lưu PDF.')}},50);
+    setTimeout(done,60000);
+  }
+  function tripText(t){
+    var L=[t.name+' ('+t.dates+')','Thành viên: '+t.people.join(', ')];
+    tCcys(t).forEach(function(c){
+      var ex=t.exp.filter(function(e){return eCur(e)===c}),pays=t.pay.filter(function(p){return p.cur===c});
+      if(!ex.length&&!pays.length)return;
+      var tot=0;ex.forEach(function(e){tot+=eAmt(e)});
+      L.push('','['+c+'] Tổng chi: '+fmtC(tot,c));
+      var b=tBal(t,c);t.people.forEach(function(p){var v=b[p]||0;L.push('- '+p+': '+(v>0.004?'được nhận lại '+fmtC(v,c):v<-0.004?'còn nợ '+fmtC(-v,c):'đã cân bằng'))});
+      var sug=tSuggest(t,c,SL.direct);if(sug.length){L.push('Thanh toán:');sug.forEach(function(l){L.push('  '+l.from+' → '+l.to+': '+fmtC(l.amt,c))})}
+    });
+    return L.join('\n');
+  }
+  function tripShare(){
+    var t=curTrip();if(!t)return;var txt=tripText(t);
+    if(navigator.share){navigator.share({title:'Tổng kết '+t.name,text:txt}).catch(function(){});return}
+    if(navigator.clipboard)navigator.clipboard.writeText(txt).then(function(){toast('Đã chép tổng kết. Dán vào Zalo để gửi.')},function(){toast('Không chép được.')});
   }
   function stamp(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())}
   function backupFile(){
@@ -2151,7 +2285,8 @@ body{font-size:15px;letter-spacing:-.003em}
       case 'tsLine':{var tl=curTrip(),ln=tSuggest(tl,SL.cur,SL.direct)[+a];if(ln)paySheet({from:ln.from,to:ln.to,amt:ln.amt,cur:SL.cur},tl.id);return}
       case 'tfSel':{tfRead();TF.sel[+a]=(TF.sel[+a]===false);return draw()}
       case 'tfApply':return tfApply();
-      case 'tsExport':return toast(a==='PDF'?'Đã tạo file PDF (mô phỏng).':'Đã mở Zalo để gửi file (mô phỏng).');
+      case 'tsExport':return a==='PDF'?tripPdf():tripShare();
+      case 'xlsx':return exportExcel();
       case 'tcDo':return tcDo();
       case 'offToggle':OFFOPEN=!OFFOPEN;return draw();
       case 'balOpen':BL={accs:a?[a]:[],all:!a,p:'month',m:THIS_MONTH,offOpen:false};return go('bal');
@@ -2857,7 +2992,7 @@ body{font-size:15px;letter-spacing:-.003em}
     var h=head('Tổng kết chuyến đi','<span class="badge">Xem trước PDF</span>');
     h+='<div class="card"><div style="font-size:18px;font-weight:700">'+esc(t.name)+'</div><div class="note" style="margin:2px 0 0">'+esc(t.dates)+' · '+t.people.map(esc).join(', ')+'</div></div>';
     tCcys(t).forEach(function(c){h+=sumSection(t,c)});
-    h+='<div class="actions"><button class="btn solid" data-act="tsExport" data-a="PDF" type="button">Xuất PDF</button><button class="btn" data-act="tsExport" data-a="Zalo" type="button">Gửi qua Zalo</button></div>';
+    h+='<div class="actions"><button class="btn solid" data-act="tsExport" data-a="PDF" type="button">Xuất PDF</button><button class="btn" data-act="tsExport" data-a="Zalo" type="button">Gửi tổng kết</button></div>';
     h+='<p class="note">Mỗi loại tiền là một phần riêng, không cộng gộp khác tiền tệ. Người đi cùng xem qua file, không cần cài app.</p>';
     return h;
   }
@@ -2918,7 +3053,7 @@ body{font-size:15px;letter-spacing:-.003em}
   document.addEventListener('touchend',function(e){if(!tx0)return;var t=e.changedTouches[0];if(t.clientX-tx0.x>70&&Math.abs(t.clientY-tx0.y)<60){if($('bg'))closeSheet();else back()}tx0=null},{passive:true});
 
   /* ================= LƯU DỮ LIỆU (IndexedDB) ================= */
-  var APP_VER='1.0.3',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.4',DBN='so-tai-chinh',KEY='state';
   function snapshot(){return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:S,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
     S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};BUDY=d.BUDY||{};if(!d.BUDY&&d.S&&d.S.demo){BUD=JSON.parse(JSON.stringify(BUD_DEF));BUDY=JSON.parse(JSON.stringify(BUDY_DEF))}owed=d.owed||{};held=d.held||{};P=d.P||{};
