@@ -548,7 +548,9 @@ body{font-size:15px;letter-spacing:-.003em}
   ];
   var GROUPS=[['bank','Tiền mặt và ngân hàng'],['credit','Thẻ tín dụng'],['invest','Đầu tư']];
   var GNAME={bank:'Tiền mặt / Ngân hàng',credit:'Thẻ tín dụng',invest:'Đầu tư'};
-  var BUD={'Ăn uống':7000000,'Hưởng thụ':3000000,'Đi lại':1000000,'Hiếu hỉ':1500000};
+  var BUD_DEF={'Ăn uống':5000000,'Gia đình':2000000,'Hưởng thụ':1000000,'Phát triển bản thân':2500000,'Trang phục':1000000};
+  var BUDY_DEF={'Hưởng thụ · Du lịch':60000000,'Sức khỏe · Bảo hiểm':26000000,'Hiếu hỉ':30000000};
+  var BUD=JSON.parse(JSON.stringify(BUD_DEF)),BUDY=JSON.parse(JSON.stringify(BUDY_DEF));
   var owed={},held={},P={},txs=[],nextId=1;
   var TYPE_LABEL={chi:'Chi',thu:'Thu',chuyen:'Chuyển',ung:'Ứng hộ',giu:'Giữ hộ',nhan:'Nhận lại',tra:'Trả lại',dc:'Điều chỉnh',tl:'Chuyến đi'};
 
@@ -681,7 +683,8 @@ body{font-size:15px;letter-spacing:-.003em}
     return out;
   }
   function slotColor(slot){return slot>=0&&slot<10?'var(--s'+(slot+1)+')':'var(--sx)'}
-  function spentGroup(m,g){var t=0;txs.forEach(function(x){if(x.type==='chi'&&x.date.slice(0,7)===m&&parts(x.cat)[0]===g)t+=x.amount});return t}
+  function spentGroup(m,g){var t=0;txs.forEach(function(x){if(x.type==='chi'&&x.date.slice(0,7)===m&&parts(x.cat)[0]===g&&!(x.cat in BUDY))t+=x.amount});return t}
+  function spentYear(y,k){var t=0;txs.forEach(function(x){if(x.type==='chi'&&x.date.slice(0,4)===y&&(x.cat===k||parts(x.cat)[0]===k))t+=x.amount});return t}
 
   /* ================= ĐIỀU HƯỚNG ================= */
   var tab='home',stack=[{v:'home'}];
@@ -1770,12 +1773,41 @@ body{font-size:15px;letter-spacing:-.003em}
     var status=b.pct>1?'<span class="tag over">▲ Vượt '+fmt(b.spent-b.limit)+'</span>':b.pct>=0.8?'<span class="tag warn">Gần hết · còn '+fmt(b.limit-b.spent)+'</span>':'<span class="small" style="color:var(--ink-2);font-size:12px">Còn '+fmt(b.limit-b.spent)+'</span>';
     return '<button type="button" class="row rowbtn" data-act="budEdit" data-a="'+esc(b.g)+'" style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><b style="font-weight:600">'+esc(b.g)+'</b><span class="num" style="font-size:13px;color:var(--ink-2)">'+fmt(b.spent)+' / '+fmt(b.limit)+'</span></div><div class="bar '+cls+'"><i style="width:'+pct+'%"></i></div><div style="margin-top:6px">'+status+'</div></button>';
   }
+  function budYRows(y){
+    var out=[];for(var k in BUDY){var sp=spentYear(y,k);out.push({k:k,limit:BUDY[k],spent:sp,pct:BUDY[k]?sp/BUDY[k]:0})}
+    out.sort(function(a,b){return b.pct-a.pct});return out;
+  }
+  function budYLabel(k){var p=k.split(' · ');return p.length>1?'<b style="font-weight:600">'+esc(p[1])+'</b> <small style="color:var(--ink-3);font-size:12px">'+esc(p[0])+'</small>':'<b style="font-weight:600">'+esc(k)+'</b> <small style="color:var(--ink-3);font-size:12px">cả nhóm</small>'}
+  function budYRowHtml(b){
+    var pct=Math.min(100,Math.round(b.pct*100)),cls=b.pct>1?'over':b.pct>=0.8?'warn':'';
+    var status=b.pct>1?'<span class="tag over">▲ Vượt '+fmt(b.spent-b.limit)+'</span>':b.pct>=0.8?'<span class="tag warn">Gần hết · còn '+fmt(b.limit-b.spent)+'</span>':'<span class="small" style="color:var(--ink-2);font-size:12px">Còn '+fmt(b.limit-b.spent)+' trong năm</span>';
+    return '<button type="button" class="row rowbtn" data-act="budYEdit" data-a="'+esc(b.k)+'" style="display:block"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span>'+budYLabel(b.k)+'</span><span class="num" style="font-size:13px;color:var(--ink-2)">'+fmt(b.spent)+' / '+fmt(b.limit)+'</span></div><div class="bar '+cls+'"><i style="width:'+pct+'%"></i></div><div style="margin-top:6px">'+status+'</div></button>';
+  }
   function vBudget(){
-    var rows=budgetRows(THIS_MONTH);
-    var h=head('Hạn mức chi','<button class="btn" data-act="budAdd" type="button">+ Hạn mức</button>');
-    h+='<p class="note" style="margin-top:0">Mức chi tối đa mỗi tháng cho từng nhóm hạng mục. Đang xem '+monthLabel(THIS_MONTH)+'.</p><div class="list" style="margin-top:10px">';
-    h+=rows.length?rows.map(budgetRowHtml).join(''):'<div class="empty">Chưa có hạn mức. Bấm "+ Hạn mức" để thêm.</div>';
-    return h+'</div><p class="note">Bấm vào một dòng để sửa hoặc xóa hạn mức.</p>';
+    var rows=budgetRows(THIS_MONTH),y=THIS_MONTH.slice(0,4),yr=budYRows(y);
+    var h=head('Hạn mức chi');
+    h+='<div class="sec" style="margin-top:4px"><h2>Theo tháng · '+monthLabel(THIS_MONTH)+'</h2><button class="link" data-act="budAdd" type="button">+ Thêm</button></div><div class="list">';
+    h+=rows.length?rows.map(budgetRowHtml).join(''):'<div class="empty">Chưa có hạn mức tháng.</div>';
+    h+='</div><p class="note">Chi theo tháng không tính các khoản đã có hạn mức năm riêng (ví dụ Du lịch).</p>';
+    h+='<div class="sec"><h2>Theo năm · '+y+'</h2><button class="link" data-act="budYAdd" type="button">+ Thêm</button></div><div class="list">';
+    h+=yr.length?yr.map(budYRowHtml).join(''):'<div class="empty">Chưa có hạn mức năm.</div>';
+    return h+'</div><p class="note">Dành cho khoản lớn, không đều tháng nào cũng chi: du lịch, bảo hiểm, Tết. Bấm vào một dòng để sửa hoặc xóa.</p>';
+  }
+  function budYBody(){
+    var g=SH.yg,grp=CATS.chi.filter(function(x){return x.g===g})[0],b='';
+    if(!SH.extra){
+      b+='<div class="block" style="margin-top:0"><div class="cap"><span>Nhóm hạng mục</span></div><div class="chips">'+CATS.chi.map(function(x){return '<button type="button" class="chip" data-act="budYG" data-a="'+esc(x.g)+'" aria-pressed="'+(x.g===g)+'">'+esc(x.g)+'</button>'}).join('')+'</div></div>';
+      if(grp)b+='<div class="block"><div class="cap"><span>Áp dụng cho</span></div><div class="chips"><button type="button" class="chip" data-act="budYS" data-a="" aria-pressed="'+(!SH.ys)+'">Cả nhóm</button>'+grp.i.map(function(i){return '<button type="button" class="chip" data-act="budYS" data-a="'+esc(i)+'" aria-pressed="'+(SH.ys===i)+'">'+esc(i)+'</button>'}).join('')+'</div></div>';
+    }
+    var k=SH.extra||(SH.ys?g+' · '+SH.ys:g),cur=BUDY[k];
+    if(!SH.extra&&cur)b+='<p class="note">Đã có hạn mức năm cho mục này, lưu sẽ thay số cũ.</p>';
+    b+='<div class="amount"><label for="sh-amt">Mức chi tối đa cả năm</label><div class="field"><input id="sh-amt" class="money" inputmode="numeric" value="'+(cur?cur.toLocaleString('vi-VN'):'')+'" placeholder="0"><span class="cur">₫</span></div></div><div class="err" id="sh-err" role="alert"></div><button class="save" data-act="budYSave" type="button">Lưu</button>';
+    if(SH.extra)b+='<button class="save ghost" data-act="budYDel" type="button">Xóa hạn mức năm</button>';
+    return b;
+  }
+  function budYSheet(k){
+    SH={extra:k||null,yg:k?k.split(' · ')[0]:CATS.chi[0].g,ys:''};
+    sheet(k?'Hạn mức năm · '+k.split(' · ').pop():'Thêm hạn mức năm','<div id="byBody">'+budYBody()+'</div>');
   }
 
   /* ================= HẠNG MỤC ================= */
@@ -1810,7 +1842,7 @@ body{font-size:15px;letter-spacing:-.003em}
   function switchRow(label,sub,act,on){return '<div class="row"><div class="name"><div>'+label+'</div>'+(sub?'<small>'+sub+'</small>':'')+'</div><button type="button" class="switch" role="switch" data-act="'+act+'" aria-checked="'+on+'" aria-label="'+label+'"></button></div>'}
   function vMore(){
     var h=head('Khác',S.demo?'<span class="badge">Dữ liệu mẫu</span>':'',true);
-    h+='<div class="list"><button type="button" class="row rowbtn" data-go="trips"><div class="name"><div>Chuyến đi</div><small>Chia tiền nhóm, nhiều loại tiền, tổng kết</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="cats"><div class="name"><div>Hạng mục</div><small>Thêm, sửa nhóm và hạng mục</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="budget"><div class="name"><div>Hạn mức chi</div><small>Mức chi tối đa mỗi tháng</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="people"><div class="name"><div>Người ứng hộ, giữ hộ</div><small>Đang theo dõi, đã tất toán, ẩn, gộp</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="backup"><div class="name"><div>Sao lưu và khôi phục</div><small>Google Drive · '+(S.drive?'Đã kết nối':'Chưa kết nối')+'</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="hist"><div class="name"><div>Lịch sử giao dịch</div><small>Xem, tìm, sửa, xóa</small></div><span class="chev">›</span></button></div>';
+    h+='<div class="list"><button type="button" class="row rowbtn" data-go="trips"><div class="name"><div>Chuyến đi</div><small>Chia tiền nhóm, nhiều loại tiền, tổng kết</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="cats"><div class="name"><div>Hạng mục</div><small>Thêm, sửa nhóm và hạng mục</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="budget"><div class="name"><div>Hạn mức chi</div><small>Theo tháng và theo năm</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="people"><div class="name"><div>Người ứng hộ, giữ hộ</div><small>Đang theo dõi, đã tất toán, ẩn, gộp</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="backup"><div class="name"><div>Sao lưu và khôi phục</div><small>Google Drive · '+(S.drive?'Đã kết nối':'Chưa kết nối')+'</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="hist"><div class="name"><div>Lịch sử giao dịch</div><small>Xem, tìm, sửa, xóa</small></div><span class="chev">›</span></button></div>';
     h+='<div class="sec"><h2>Giao diện</h2></div>'+themePicker();
     h+='<div class="sec"><h2>Cài đặt</h2></div><div class="list">'+switchRow('Ẩn số tiền','Che các con số trên màn hình','hide',S.hide)+switchRow('Khóa bằng Face ID','Hỏi Face ID khi mở app','faceid',S.faceid)+'</div>';
     h+='<p class="note">'+(S.demo?'Đang dùng dữ liệu mẫu. Vào Sao lưu và khôi phục, chọn Khôi phục từ file để nạp dữ liệu thật.':'Dữ liệu lưu trên máy này. Nhớ sao lưu thường xuyên.')+'</p><p class="note">Phiên bản '+APP_VER+'</p>';
@@ -2117,6 +2149,12 @@ body{font-size:15px;letter-spacing:-.003em}
       case 'budGroup':SH.group=a;{var q=document.querySelectorAll('#sh-groups button');for(var j=0;j<q.length;j++)q[j].setAttribute('aria-pressed',q[j].dataset.a===a)}return;
       case 'budSave':{var v=parseMoney($('sh-amt'));if(!v){$('sh-err').textContent='Nhập mức chi tối đa.';return}BUD[SH.extra||SH.group]=v;closeSheet();toast('Đã lưu hạn mức.');return draw();}
       case 'budDel':delete BUD[SH.extra];closeSheet();toast('Đã xóa hạn mức.');return draw();
+      case 'budYAdd':return budYSheet(null);
+      case 'budYEdit':return budYSheet(a);
+      case 'budYG':{var v0=$('sh-amt').value;SH.yg=a;SH.ys='';$('byBody').innerHTML=budYBody();if(v0&&!$('sh-amt').value)$('sh-amt').value=v0;return}
+      case 'budYS':{var v1=$('sh-amt').value;SH.ys=a;$('byBody').innerHTML=budYBody();if(v1&&!$('sh-amt').value)$('sh-amt').value=v1;return}
+      case 'budYSave':{var vy=parseMoney($('sh-amt'));if(!vy){$('sh-err').textContent='Nhập mức chi tối đa cả năm.';return}var ky=SH.extra||(SH.ys?SH.yg+' · '+SH.ys:SH.yg);BUDY[ky]=vy;closeSheet();toast('Đã lưu hạn mức năm.');return draw();}
+      case 'budYDel':delete BUDY[SH.extra];closeSheet();toast('Đã xóa hạn mức năm.');return draw();
       case 'ck':C.kind=a;return draw();
       case 'catItem':{var pi=a.split('|');return nameSheet('Sửa hạng mục',CATS[C.kind][+pi[0]].i[+pi[1]],{k:'item',g:+pi[0],i:+pi[1]},true)}
       case 'catAdd':return nameSheet('Thêm hạng mục',''  ,{k:'itemNew',g:+a},false);
@@ -2124,12 +2162,12 @@ body{font-size:15px;letter-spacing:-.003em}
       case 'grpAdd':return nameSheet('Thêm nhóm hạng mục','',{k:'grpNew'},false);
       case 'nameSave':{
         var nmv=$('sh-name').value.trim(),ex=SH.extra,arr=CATS[C.kind];if(!nmv){$('sh-err').textContent='Nhập tên.';return}
-        if(ex.k==='item')arr[ex.g].i[ex.i]=nmv;
+        if(ex.k==='item'){var oi=arr[ex.g].g+' · '+arr[ex.g].i[ex.i];arr[ex.g].i[ex.i]=nmv;if(oi in BUDY){BUDY[arr[ex.g].g+' · '+nmv]=BUDY[oi];delete BUDY[oi]}}
         else if(ex.k==='itemNew')arr[ex.g].i.push(nmv);
-        else if(ex.k==='grp'){var old=arr[ex.g].g;arr[ex.g].g=nmv;if(old in BUD){BUD[nmv]=BUD[old];delete BUD[old]}}
+        else if(ex.k==='grp'){var old=arr[ex.g].g;arr[ex.g].g=nmv;if(old in BUD){BUD[nmv]=BUD[old];delete BUD[old]}Object.keys(BUDY).forEach(function(k){var p=k.split(' · ');if(p[0]===old){BUDY[p.length>1?nmv+' · '+p[1]:nmv]=BUDY[k];delete BUDY[k]}})}
         else if(ex.k==='grpNew')arr.push({g:nmv,i:[]});
         closeSheet();toast('Đã lưu.');return draw();}
-      case 'nameDel':{var e2=SH.extra,ar=CATS[C.kind];if(e2.k==='item')ar[e2.g].i.splice(e2.i,1);else if(e2.k==='grp'){delete BUD[ar[e2.g].g];ar.splice(e2.g,1)}closeSheet();toast('Đã xóa. Giao dịch cũ vẫn giữ tên cũ.');return draw();}
+      case 'nameDel':{var e2=SH.extra,ar=CATS[C.kind];if(e2.k==='item'){delete BUDY[ar[e2.g].g+' · '+ar[e2.g].i[e2.i]];ar[e2.g].i.splice(e2.i,1)}else if(e2.k==='grp'){var og=ar[e2.g].g;delete BUD[og];Object.keys(BUDY).forEach(function(k){if(k.split(' · ')[0]===og)delete BUDY[k]});ar.splice(e2.g,1)}closeSheet();toast('Đã xóa. Giao dịch cũ vẫn giữ tên cũ.');return draw();}
       case 'bkFile':return backupFile();
       case 'bkPick':return pickRestore();
       case 'bkRestoreOk':{if(!PEND)return closeSheet();restore(PEND.state);PEND=null;closeSheet();persist(true);tab='home';stack=[{v:'home'}];newAddState();draw('tab');return toast('Đã khôi phục dữ liệu.')}
@@ -2759,10 +2797,10 @@ body{font-size:15px;letter-spacing:-.003em}
   document.addEventListener('touchend',function(e){if(!tx0)return;var t=e.changedTouches[0];if(t.clientX-tx0.x>70&&Math.abs(t.clientY-tx0.y)<60){if($('bg'))closeSheet();else back()}tx0=null},{passive:true});
 
   /* ================= LƯU DỮ LIỆU (IndexedDB) ================= */
-  var APP_VER='1.0.0',DBN='so-tai-chinh',KEY='state';
-  function snapshot(){return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:S,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
+  var APP_VER='1.0.1',DBN='so-tai-chinh',KEY='state';
+  function snapshot(){return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:S,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
-    S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};owed=d.owed||{};held=d.held||{};P=d.P||{};
+    S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};BUDY=d.BUDY||{};if(!d.BUDY&&d.S&&d.S.demo){BUD=JSON.parse(JSON.stringify(BUD_DEF));BUDY=JSON.parse(JSON.stringify(BUDY_DEF))}owed=d.owed||{};held=d.held||{};P=d.P||{};
     txs=d.txs||[];nextId=d.nextId||1;TRIPS=d.TRIPS||[];TXN=d.TXN||1;FW=d.FW||{};RATES=d.RATES||{};LAST_TRIP=d.LAST_TRIP||null;
     var mx=0;txs.forEach(function(t){if(t.id>mx)mx=t.id});if(nextId<=mx)nextId=mx+1;sortTx();
   }
