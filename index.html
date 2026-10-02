@@ -2072,9 +2072,9 @@ body.navhide .tabbar{box-shadow:none}
       clearTimeout(tm);
       if(!r.ok)throw new Error('Không gọi được script (lỗi '+r.status+'). Kiểm tra đường link.');
       return r.text();
-    },function(e){clearTimeout(tm);throw new Error(e&&e.name==='AbortError'?'Script phản hồi quá lâu.':'Không kết nối được script. Kiểm tra mạng và đường link.')}).then(function(t){
+    },function(e){clearTimeout(tm);var er=new Error(e&&e.name==='AbortError'?'Script phản hồi quá lâu.':'Không kết nối được script. Kiểm tra mạng và đường link.');er.retry=true;throw er}).then(function(t){
       var d=null;try{d=JSON.parse(t)}catch(e){}
-      if(!d)throw new Error('Đường link không phải script sao lưu (cần link Ứng dụng web, đuôi /exec, quyền «Bất kỳ ai»).');
+      if(!d){var m=String(t||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,80),er=new Error('Google trả về trang lạ thay vì kết quả'+(m?' («'+m+'»)':'')+'. Thường do Google trục trặc tạm thời, bấm Sao lưu ngay để thử lại.');er.retry=true;throw er}
       if(!d.ok)throw new Error(gsErrMsg(d));
       return d;
     });
@@ -2090,13 +2090,14 @@ body.navhide .tabbar{box-shadow:none}
     if(!window.DecompressionStream)return Promise.reject(new Error('Máy này không giải nén được, hãy cập nhật iOS.'));
     return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
   }
-  function gUpload(){
+  function gUpload(){return gUpload1().catch(function(e){if(!e||!e.retry||!navigator.onLine)throw e;return new Promise(function(r){setTimeout(r,5000)}).then(gUpload1)})}
+  function gUpload1(){
     var data=JSON.stringify(snapshot(true));
     return gzipText(data).then(function(gz){
       var body={op:'backup',day:todayISO()};
       if(gz)body.gz=b64(gz);else body.data=data;
-      S.bkLastKB=Math.round((gz?gz.length*4/3:data.length)/1024);
-      return gsCall(body);
+      var kb=Math.round((gz?gz.length*4/3:data.length)/1024);
+      return gsCall(body).then(function(r){S.bkLastKB=kb;return r});
     });
   }
   function bkState(){return !gsOn()?'off':GBUSY?'busy':S.bkErr?'err':bkDirty()?'dirty':'ok'}
@@ -3441,7 +3442,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.14',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.15',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
