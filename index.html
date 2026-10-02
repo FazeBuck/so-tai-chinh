@@ -604,9 +604,13 @@ body.navhide .tabbar{box-shadow:none}
 .pv .pages{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:12px 16px 20px;background:var(--track)}
 .pv .hint{margin:0 0 10px;text-align:center;font-size:12px;color:var(--ink-3)}
 .pv .pg{display:block;width:100%;height:auto;margin:0 0 14px;background:#fff;border-radius:3px;box-shadow:0 1px 6px rgba(0,0,0,.18)}
-.pv.zoom .pg{width:230%;max-width:none}
-.pv footer{padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--bg)}
-.pv footer .btn{width:100%;padding:14px;font-size:16px;border-radius:12px}
+.pv .pg{width:calc(var(--pz,1) * 100%);max-width:none}
+.pv footer{display:flex;gap:10px;align-items:stretch;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--bg)}
+.pv footer .btn.solid{flex:1;padding:14px;font-size:16px;border-radius:12px}
+.pv .zm{display:flex;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:12px;overflow:hidden}
+.pv .zm button{border:0;background:none;color:var(--accent);font-size:22px;font-weight:600;width:44px;height:100%;padding:0;line-height:1}
+.pv .zm button:disabled{color:var(--ink-3);opacity:.45}
+.pv .zm span{min-width:50px;text-align:center;font-size:14px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:no-preference){.pv{animation:pvIn .22s ease-out}.pv.closing{animation:pvOut .18s ease-in forwards}@keyframes pvIn{from{opacity:0;transform:translateY(16px)}}@keyframes pvOut{to{opacity:0;transform:translateY(16px)}}}
 .pl.a-sr,.pl.a-sl{display:inline-block}
 </style>
@@ -2294,20 +2298,31 @@ body.navhide .tabbar{box-shadow:none}
     PV={blob:blob,name:name,urls:[]};
     var h=$('pvHost');
     h.innerHTML='<div class="pv" id="pv" role="dialog" aria-label="Xem trước PDF"><header><button type="button" data-act="pvClose">Hủy</button><span>Xem trước PDF</span><span class="n">'+cvs.length+' trang</span></header>'
-      +'<div class="pages" id="pvPages"><p class="hint">Chạm vào trang để phóng to hoặc thu nhỏ.</p></div>'
-      +'<footer><button class="btn solid" type="button" data-act="pvShare">'+(canShare?'Chia sẻ':'Tải về')+'</button></footer></div>';
+      +'<div class="pages" id="pvPages"><p class="hint">Bấm − / + hoặc chạm vào trang để phóng to, thu nhỏ.</p></div>'
+      +'<footer><div class="zm"><button type="button" data-act="pvZoom" data-a="-1" aria-label="Thu nhỏ">−</button><span id="pvZ">100%</span><button type="button" data-act="pvZoom" data-a="1" aria-label="Phóng to">+</button></div><button class="btn solid" type="button" data-act="pvShare">'+(canShare?'Chia sẻ':'Tải về')+'</button></footer></div>';
     var box=$('pvPages');
     cvs.forEach(function(c,i){c.className='pg';c.setAttribute('aria-label','Trang '+(i+1));box.appendChild(c)});
     /* đổi canvas sang ảnh để nhẹ bộ nhớ */
     cvs.forEach(function(c){if(!c.toBlob)return;c.toBlob(function(b){if(!b||!PV||!c.parentNode)return;var u=URL.createObjectURL(b),im=new Image();PV.urls.push(u);im.className='pg';im.alt=c.getAttribute('aria-label');im.onload=function(){if(c.parentNode){c.parentNode.replaceChild(im,c);c.width=c.height=0}};im.src=u},'image/png')});
+    pvSetZ(1);
     box.addEventListener('click',function(e){
       var pg=e.target.closest&&e.target.closest('.pg');if(!pg)return;
-      var pv=$('pv'),z=!pv.classList.contains('zoom'),r=pg.getBoundingClientRect(),fx=(e.clientX-r.left)/r.width,fy=(e.clientY-r.top)/r.height;
-      pv.classList.toggle('zoom',z);
-      var r2=pg.getBoundingClientRect(),br=box.getBoundingClientRect();
-      box.scrollLeft+=r2.left+fx*r2.width-(e.clientX-br.left)-br.left;box.scrollTop+=r2.top+fy*r2.height-(e.clientY-br.top)-br.top;
+      pvSetZ(PV.z>1?1:2,e.clientX,e.clientY);
     });
   }
+  /* phóng to theo mức cố định, giữ nguyên điểm đang nhìn (ngón tay chạm, hoặc giữa màn) */
+  var PVZ=[1,1.5,2,3];
+  function pvSetZ(z,cx,cy){
+    var pv=$('pv'),box=$('pvPages');if(!pv||!box||!PV)return;
+    var br=box.getBoundingClientRect();if(cx==null){cx=br.left+br.width/2;cy=br.top+br.height/2}
+    var g=box.querySelector('.pg'),gr=g?g.getBoundingClientRect():br,ox=gr.left-br.left+box.scrollLeft,oy=gr.top-br.top+box.scrollTop;
+    var old=PV.z||1,ax=box.scrollLeft+cx-br.left,ay=box.scrollTop+cy-br.top;
+    PV.z=z;pv.style.setProperty('--pz',z);
+    var k=z/old;box.scrollLeft=Math.max(0,(ax-ox)*k+ox-(cx-br.left));box.scrollTop=Math.max(0,(ay-oy)*k+oy-(cy-br.top));
+    $('pvZ').textContent=Math.round(z*100)+'%';
+    var bs=pv.querySelectorAll('.zm button');bs[0].disabled=z<=PVZ[0];bs[1].disabled=z>=PVZ[PVZ.length-1];
+  }
+  function pvZoom(d){if(!PV)return;var i=PVZ.indexOf(PV.z);if(i<0)i=0;i=Math.max(0,Math.min(PVZ.length-1,i+d));pvSetZ(PVZ[i])}
   function pvClose(quiet){var h=$('pvHost');if(!h)return;if(PV){PV.urls.forEach(function(u){URL.revokeObjectURL(u)});PV=null}
     var n=$('pv');if(!n){h.innerHTML='';return}
     if(quiet){h.innerHTML='';return}
@@ -2707,6 +2722,7 @@ body.navhide .tabbar{box-shadow:none}
       case 'tsExport':return tripPdf();
       case 'pvClose':return pvClose();
       case 'pvShare':return pvShare();
+      case 'pvZoom':return pvZoom(+a);
       case 'xlsx':return exportExcel();
       case 'tcDo':return tcDo();
       case 'offToggle':OFFOPEN=!OFFOPEN;return draw();
