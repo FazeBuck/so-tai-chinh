@@ -16,7 +16,7 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}*{-webkit-tap-highlight-color:transparent}html{background:#F3F1EC}@media (prefers-color-scheme:dark){html{background:#0B1426}}html,body{height:100%;overflow:hidden;overscroll-behavior:none}#scr{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);bottom:0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}@media print{html,body{height:auto;overflow:visible}#scr{position:static;overflow:visible}}</style>
-<style>html{background:var(--bg)!important}#sbar{position:fixed;left:0;right:0;top:0;width:100%;height:calc(env(safe-area-inset-top,0px) + 20px);background-color:var(--bg);z-index:9;pointer-events:none}</style>
+<style>html{background:var(--bg)!important}#sbar{position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:9;pointer-events:none}#scr>.app{padding-top:12px}</style>
 </head>
 <body>
 <div id="sbar" aria-hidden="true"></div>
@@ -3433,7 +3433,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.10',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.11',DBN='so-tai-chinh',KEY='state';
   function snapshot(){return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:S,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
     S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};BUDY=d.BUDY||{};if(!d.BUDY&&d.S&&d.S.demo){BUD=JSON.parse(JSON.stringify(BUD_DEF));BUDY=JSON.parse(JSON.stringify(BUDY_DEF))}owed=d.owed||{};held=d.held||{};P=d.P||{};
