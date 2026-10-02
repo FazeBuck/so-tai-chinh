@@ -597,6 +597,17 @@ body.navhide #nscrim,body.typing #nscrim{opacity:0}
 /* 1.0.9: dark mode — menu sáng hơn + viền mảnh (phương án C) */
 .tabbar{box-shadow:inset 0 0 0 1px var(--nav-edge,transparent),var(--nav-shadow)}
 body.navhide .tabbar{box-shadow:none}
+.pv{position:fixed;inset:0;z-index:15;background:var(--bg);display:flex;flex-direction:column}
+.pv header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;font-weight:700;font-size:16px;border-bottom:1px solid var(--line)}
+.pv header button{border:0;background:none;color:var(--accent);font-weight:600;font-size:16px;padding:4px 0;min-width:64px;text-align:left}
+.pv header .n{min-width:64px;text-align:right;font-weight:500;font-size:13px;color:var(--ink-3)}
+.pv .pages{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:12px 16px 20px;background:var(--track)}
+.pv .hint{margin:0 0 10px;text-align:center;font-size:12px;color:var(--ink-3)}
+.pv .pg{display:block;width:100%;height:auto;margin:0 0 14px;background:#fff;border-radius:3px;box-shadow:0 1px 6px rgba(0,0,0,.18)}
+.pv.zoom .pg{width:230%;max-width:none}
+.pv footer{padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--bg)}
+.pv footer .btn{width:100%;padding:14px;font-size:16px;border-radius:12px}
+@media (prefers-reduced-motion:no-preference){.pv{animation:pvIn .22s ease-out}.pv.closing{animation:pvOut .18s ease-in forwards}@keyframes pvIn{from{opacity:0;transform:translateY(16px)}}@keyframes pvOut{to{opacity:0;transform:translateY(16px)}}}
 .pl.a-sr,.pl.a-sl{display:inline-block}
 </style>
 
@@ -610,6 +621,7 @@ body.navhide .tabbar{box-shadow:none}
   <button class="tab" data-tab="more" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Khác</span></button>
 </nav>
 <div id="sheetHost"></div>
+<div id="pvHost"></div>
 <div class="kbbar" id="kbBar" hidden><button type="button" class="kbkey" data-act="zeros" aria-label="Thêm ba số 0">000</button><span class="sp"></span><button type="button" class="kbkey done" data-act="kbDone">Xong</button></div>
 <div id="toastHost"></div>
 
@@ -2268,17 +2280,45 @@ body.navhide .tabbar{box-shadow:none}
   /* ================= PDF TỔNG KẾT CHUYẾN ĐI (vẽ bằng canvas, đóng gói PDF, không cần thư viện) ================= */
   function tripPdf(){
     var t=curTrip();if(!t)return;
-    if(!PDFLIB||!PDFF){toast('Đang chuẩn bị PDF, đợi 1–2 giây rồi bấm lại.');pdfPrep().catch(function(e){toast(e.message)});return}
-    /* tạo và mở bảng Chia sẻ ngay trong lần bấm, vì iPhone chỉ cho chia sẻ file khi người dùng vừa bấm */
-    try{var blob;try{blob=buildTripPdf(t)}catch(e0){if(e0&&e0.needLand)blob=buildTripPdf(t,true);else throw e0}shareOrDownload(blob,'Tong-ket_'+t.name.replace(/[^\wÀ-ỹ]+/g,'-').replace(/^-|-$/g,'')+'.pdf',function(){toast('Đã tạo file PDF.')})}
+    if(!PDFLIB||!PDFF){toast('Đang chuẩn bị PDF…');pdfPrep().then(function(){var t2=curTrip();if(t2&&t2.id===t.id)tripPdf()},function(e){toast(e.message)});return}
+    /* bước 1: tạo PDF và bản xem trước; bước 2: người dùng bấm Chia sẻ (iPhone chỉ cho chia sẻ ngay trong lần bấm, nên file đã tạo sẵn) */
+    try{var blob,pv=[];try{blob=buildTripPdf(t,false,pv)}catch(e0){if(e0&&e0.needLand){pv=[];blob=buildTripPdf(t,true,pv)}else throw e0}
+      pdfPreview(blob,'Tong-ket_'+t.name.replace(/[^\wÀ-ỹ]+/g,'-').replace(/^-|-$/g,'')+'.pdf',pv)}
     catch(e){toast('Không tạo được PDF: '+(e&&e.message||e))}
   }
-  function buildTripPdf(t,land){
+  /* ----- màn xem trước PDF: Hủy / Chia sẻ ----- */
+  var PV=null;
+  function pdfPreview(blob,name,cvs){
+    pvClose(true);
+    var canShare=false;try{var f=new File([blob],name,{type:'application/pdf'});canShare=!!(navigator.canShare&&navigator.canShare({files:[f]}))}catch(e){}
+    PV={blob:blob,name:name,urls:[]};
+    var h=$('pvHost');
+    h.innerHTML='<div class="pv" id="pv" role="dialog" aria-label="Xem trước PDF"><header><button type="button" data-act="pvClose">Hủy</button><span>Xem trước PDF</span><span class="n">'+cvs.length+' trang</span></header>'
+      +'<div class="pages" id="pvPages"><p class="hint">Chạm vào trang để phóng to hoặc thu nhỏ.</p></div>'
+      +'<footer><button class="btn solid" type="button" data-act="pvShare">'+(canShare?'Chia sẻ':'Tải về')+'</button></footer></div>';
+    var box=$('pvPages');
+    cvs.forEach(function(c,i){c.className='pg';c.setAttribute('aria-label','Trang '+(i+1));box.appendChild(c)});
+    /* đổi canvas sang ảnh để nhẹ bộ nhớ */
+    cvs.forEach(function(c){if(!c.toBlob)return;c.toBlob(function(b){if(!b||!PV||!c.parentNode)return;var u=URL.createObjectURL(b),im=new Image();PV.urls.push(u);im.className='pg';im.alt=c.getAttribute('aria-label');im.onload=function(){if(c.parentNode){c.parentNode.replaceChild(im,c);c.width=c.height=0}};im.src=u},'image/png')});
+    box.addEventListener('click',function(e){
+      var pg=e.target.closest&&e.target.closest('.pg');if(!pg)return;
+      var pv=$('pv'),z=!pv.classList.contains('zoom'),r=pg.getBoundingClientRect(),fx=(e.clientX-r.left)/r.width,fy=(e.clientY-r.top)/r.height;
+      pv.classList.toggle('zoom',z);
+      var r2=pg.getBoundingClientRect(),br=box.getBoundingClientRect();
+      box.scrollLeft+=r2.left+fx*r2.width-(e.clientX-br.left)-br.left;box.scrollTop+=r2.top+fy*r2.height-(e.clientY-br.top)-br.top;
+    });
+  }
+  function pvClose(quiet){var h=$('pvHost');if(!h)return;if(PV){PV.urls.forEach(function(u){URL.revokeObjectURL(u)});PV=null}
+    var n=$('pv');if(!n){h.innerHTML='';return}
+    if(quiet){h.innerHTML='';return}
+    n.classList.add('closing');n.removeAttribute('id');setTimeout(function(){if(n.parentNode)n.parentNode.removeChild(n)},180)}
+  function pvShare(){if(!PV)return;var name=PV.name;shareOrDownload(PV.blob,name,function(){pvClose();toast('Đã xuất file PDF.')})}
+  function buildTripPdf(t,land,pv){
     var LAND=land||t.people.length>=5,W=LAND?842:595,H=LAND?595:842,SC=2,M=32,FF='"Plus Jakarta Sans",-apple-system,"Helvetica Neue",Arial,sans-serif';
     var pages=[],cv,cx,y;
     var C={ink:'#16213A',ink2:'#5B6475',line:'#DDD8CC',head:'#E3EAF6',band:'#F7F2E6',neg:'#B8402F',pos:'#2E7D4F',foot:'#EFEAE0',rule:'#1F4FA3'};
     var doc=new window.jspdf.jsPDF({unit:'pt',format:[W,H],orientation:LAND?'l':'p',compress:true});pdfFonts(doc);
-    function newPage(){if(pages.length)doc.addPage([W,H],LAND?'l':'p');cv=pages.length+1;cx=pdfCtx(doc);pages.push(cv);y=M;
+    function newPage(){if(pages.length)doc.addPage([W,H],LAND?'l':'p');cv=pages.length+1;cx=pdfCtx(doc);if(pv)cx=pvCtx(cx,pvPage(pv,W,H));pages.push(cv);y=M;
       cx.font='8px '+FF;cx.fillStyle=C.ink2;cx.textAlign='right';cx.fillText('Sổ Tài Chính · '+t.name+' · trang '+pages.length,W-M,H-16);cx.textAlign='left'}
     function need(h){if(y+h>H-M-8)newPage()}
     function font(sz,b,it){cx.font=(it?'italic ':'')+(b?'700 ':'')+sz+'px '+FF}
@@ -2405,8 +2445,17 @@ body.navhide .tabbar{box-shadow:none}
     if(PDFLIB&&PDFF)return Promise.resolve();if(pdfP)return pdfP;
     var js=window.jspdf?Promise.resolve():new Promise(function(res,rej){var sc=document.createElement('script');sc.src='lib/jspdf.umd.min.js';sc.onload=res;sc.onerror=function(){rej(new Error('Không tải được thư viện PDF'))};document.head.appendChild(sc)});
     function ttf(u){return fetch(u).then(function(r){if(!r.ok)throw new Error('Không tải được font PDF');return r.arrayBuffer()}).then(function(b){var u8=new Uint8Array(b),s='',i;for(i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s)})}
-    pdfP=Promise.all([js,ttf('lib/pjs-400.ttf'),ttf('lib/pjs-700.ttf')]).then(function(r){PDFLIB=true;PDFF={r:r[1],b:r[2]}},function(e){pdfP=null;throw e});
+    pdfP=Promise.all([js,ttf('lib/pjs-400.ttf'),ttf('lib/pjs-700.ttf')]).then(function(r){PDFF={r:r[1],b:r[2]};return pvFonts().then(function(){PDFLIB=true})},function(e){pdfP=null;throw e});
     return pdfP;
+  }
+  /* font cho bản xem trước: dùng đúng 2 file font nhúng trong PDF */
+  var PVFONT=false;
+  function pvFonts(){
+    try{if(!window.FontFace||!document.fonts)return Promise.resolve();
+      var ab=function(b64){var s=atob(b64),u=new Uint8Array(s.length),i;for(i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u.buffer};
+      var a=new FontFace('PJSPV',ab(PDFF.r),{weight:'400'}),b=new FontFace('PJSPV',ab(PDFF.b),{weight:'700'});
+      return Promise.all([a.load(),b.load()]).then(function(){document.fonts.add(a);document.fonts.add(b);PVFONT=true},function(){})}
+    catch(e){return Promise.resolve()}
   }
   function pdfFonts(doc){doc.addFileToVFS('pjs-400.ttf',PDFF.r);doc.addFont('pjs-400.ttf','PJS','normal');doc.addFileToVFS('pjs-700.ttf',PDFF.b);doc.addFont('pjs-700.ttf','PJS','bold');doc.setFont('PJS','normal')}
   function pdfCol(c){c=String(c||'#000');var m,r,g,b,a=1;
@@ -2423,6 +2472,19 @@ body.navhide .tabbar{box-shadow:none}
     o.fillRect=function(x,y,w,h){var c=pdfCol(o.fillStyle);doc.setFillColor(c[0],c[1],c[2]);doc.rect(x,y,w,h,'F')};
     o.beginPath=function(){o._pts=[]};o.moveTo=function(x,y){o._pts.push([x,y,1])};o.lineTo=function(x,y){o._pts.push([x,y,0])};
     o.stroke=function(){var c=pdfCol(o.strokeStyle);doc.setDrawColor(c[0],c[1],c[2]);doc.setLineWidth(o.lineWidth);for(var i=1;i<o._pts.length;i++)if(!o._pts[i][2])doc.line(o._pts[i-1][0],o._pts[i-1][1],o._pts[i][0],o._pts[i][1])};
+    return o;
+  }
+  /* bản xem trước: vẽ song song lên canvas, đo chữ theo PDF để trang xem trước khớp file */
+  function pvPage(pv,W,H){var k=2.5,c=document.createElement('canvas');c.width=Math.round(W*k);c.height=Math.round(H*k);var g=c.getContext('2d');g.scale(k,k);g.fillStyle='#fff';g.fillRect(0,0,W,H);pv.push(c);return g}
+  function pvCtx(p,g){
+    var o={},st={};
+    ['fillStyle','strokeStyle','lineWidth','textAlign','font'].forEach(function(k){st[k]=p[k];Object.defineProperty(o,k,{get:function(){return st[k]},set:function(v){st[k]=v;p[k]=v;
+      if(k==='font'){var m=String(v).match(/(700 )?([\d.]+)px/);g.font=(m&&m[1]?'700 ':'400 ')+(m?m[2]:10)+'px '+(PVFONT?'PJSPV':'"Plus Jakarta Sans",-apple-system,sans-serif')}else g[k]=v}})});
+    o.scale=function(){};o.measureText=function(s){return p.measureText(s)};
+    o.fillText=function(s,x,y){p.fillText(s,x,y);g.fillText(String(s),x,y)};
+    o.fillRect=function(x,y,w,h){p.fillRect(x,y,w,h);g.fillRect(x,y,w,h)};
+    o.beginPath=function(){p.beginPath();g.beginPath()};o.moveTo=function(x,y){p.moveTo(x,y);g.moveTo(x,y)};o.lineTo=function(x,y){p.lineTo(x,y);g.lineTo(x,y)};
+    o.stroke=function(){p.stroke();g.stroke()};
     return o;
   }
 
@@ -2643,6 +2705,8 @@ body.navhide .tabbar{box-shadow:none}
       case 'tfSel':{tfRead();TF.sel[+a]=(TF.sel[+a]===false);return draw()}
       case 'tfApply':return tfApply();
       case 'tsExport':return tripPdf();
+      case 'pvClose':return pvClose();
+      case 'pvShare':return pvShare();
       case 'xlsx':return exportExcel();
       case 'tcDo':return tcDo();
       case 'offToggle':OFFOPEN=!OFFOPEN;return draw();
@@ -3442,7 +3506,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.15',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.16',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
