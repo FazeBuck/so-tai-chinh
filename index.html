@@ -452,6 +452,7 @@ body{font-size:15px;letter-spacing:-.003em}
 .iconbtn svg path{stroke-linejoin:round}
 .bkbtn{position:relative}.bkbtn i{position:absolute;top:9px;right:9px;width:9px;height:9px;border-radius:50%;border:2px solid var(--surface);display:none}
 .bkbtn[data-st="dirty"] i{display:block;background:var(--warn,#d98a00)}.bkbtn[data-st="ok"] i{display:block;background:var(--pos)}
+.bkbtn[data-st="err"] i{display:block;background:var(--neg)}
 .bkbtn[data-st="busy"] svg{animation:bkp 1s ease-in-out infinite}@keyframes bkp{50%{opacity:.35}}
 /* Ô bento */
 .bento{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
@@ -2020,143 +2021,147 @@ body.navhide .tabbar{box-shadow:none}
   function switchRow(label,sub,act,on){return '<div class="row"><div class="name"><div>'+label+'</div>'+(sub?'<small>'+sub+'</small>':'')+'</div><button type="button" class="switch" role="switch" data-act="'+act+'" aria-checked="'+on+'" aria-label="'+label+'"></button></div>'}
   function vMore(){
     var h=head('Khác',S.demo?'<span class="badge">Dữ liệu mẫu</span>':'',true);
-    h+='<div class="list"><button type="button" class="row rowbtn" data-go="trips"><div class="name"><div>Chuyến đi</div><small>Chia tiền nhóm, nhiều loại tiền, tổng kết</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="cats"><div class="name"><div>Hạng mục</div><small>Thêm, sửa nhóm và hạng mục</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="budget"><div class="name"><div>Hạn mức chi</div><small>Theo tháng và theo năm</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="people"><div class="name"><div>Người ứng hộ, giữ hộ</div><small>Đang theo dõi, đã tất toán, ẩn, gộp</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="backup"><div class="name"><div>Sao lưu và khôi phục</div><small>Google Drive · '+(S.drive?'Đã kết nối':'Chưa kết nối')+'</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="hist"><div class="name"><div>Lịch sử giao dịch</div><small>Xem, tìm, sửa, xóa</small></div><span class="chev">›</span></button></div>';
+    h+='<div class="list"><button type="button" class="row rowbtn" data-go="trips"><div class="name"><div>Chuyến đi</div><small>Chia tiền nhóm, nhiều loại tiền, tổng kết</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="cats"><div class="name"><div>Hạng mục</div><small>Thêm, sửa nhóm và hạng mục</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="budget"><div class="name"><div>Hạn mức chi</div><small>Theo tháng và theo năm</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="people"><div class="name"><div>Người ứng hộ, giữ hộ</div><small>Đang theo dõi, đã tất toán, ẩn, gộp</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="backup"><div class="name"><div>Sao lưu và khôi phục</div><small>Google Drive · '+(gsOn()?'Tự động':'Chưa thiết lập')+'</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="hist"><div class="name"><div>Lịch sử giao dịch</div><small>Xem, tìm, sửa, xóa</small></div><span class="chev">›</span></button></div>';
     h+='<div class="sec"><h2>Giao diện</h2></div>'+themePicker();
     h+='<div class="sec"><h2>Cài đặt</h2></div><div class="list">'+switchRow('Ẩn số tiền','Che các con số trên màn hình','hide',S.hide)+switchRow('Khóa bằng Face ID','Hỏi Face ID khi mở app','faceid',S.faceid)+'</div>';
     h+='<p class="note">'+(S.demo?'Đang dùng dữ liệu mẫu. Vào Sao lưu và khôi phục, chọn Khôi phục từ file để nạp dữ liệu thật.':'Dữ liệu lưu trên máy này. Nhớ sao lưu thường xuyên.')+'</p><p class="note">Phiên bản '+APP_VER+'</p>';
     return h;
   }
   function vBackup(){
-    var h=head('Sao lưu và khôi phục');
+    var h=head('Sao lưu và khôi phục'),on=gsOn();
     h+='<div class="warnbox">Dữ liệu chính nằm trên iPhone. Xóa app khỏi Màn hình chính sẽ mất dữ liệu trên máy, nên cần sao lưu thường xuyên.</div>';
     h+='<div class="sec"><h2>Google Drive</h2></div>';
-    if(!S.drive){
-      h+='<div class="list"><div class="row"><div class="name"><div>Chưa kết nối</div><small class="wrap">App chỉ đọc, ghi các file do chính app tạo, trong thư mục «'+GFOLDER+'» trên Drive của anh.</small></div></div></div>';
-      h+='<div class="actions"><button class="btn solid" data-act="gConnect" type="button">Kết nối Google Drive</button></div>';
+    if(!on){
+      h+='<div class="list"><div class="row"><div class="name"><div>Chưa thiết lập</div><small class="wrap">App gửi bản sao lưu tới script Google Apps Script của anh, script ghi vào thư mục «'+GFOLDER+'» trên Drive. Cần đường link script (đuôi /exec) và mã bí mật.</small></div></div></div>';
+      h+='<div class="actions"><button class="btn solid" data-act="gsSetup" type="button">Thiết lập sao lưu</button></div>';
     }else{
-      h+='<div class="list"><div class="row"><div class="name"><div>Đã kết nối</div><small class="wrap">'+(S.last?'Sao lưu lần cuối: '+esc(S.last):'Chưa sao lưu lần nào')+(bkDirty()?' · có thay đổi chưa sao lưu':' · đã cập nhật')+'</small></div></div></div>';
-      h+='<div class="actions"><button class="btn solid" data-act="gNow" type="button">Sao lưu lên Drive ngay</button><button class="btn" data-act="gRestore" type="button">Khôi phục từ Drive</button></div>';
-      h+='<p class="note">Tự động: sau lần bấm sao lưu đầu tiên mỗi lần mở app, app tự sao lưu lại mỗi khi anh rời app (về Màn hình chính, chuyển app) nếu dữ liệu có thay đổi. Mỗi ngày một file (ghi đè trong ngày), Drive giữ 30 bản gần nhất. Nút đám mây ở Tổng quan có chấm cam khi còn thay đổi chưa sao lưu.</p>';
+      var st=bkState();
+      h+='<div class="list"><div class="row"><div class="name"><div>'+(st==='err'?'Sao lưu bị lỗi':st==='dirty'?'Có thay đổi chưa sao lưu':st==='busy'?'Đang sao lưu...':'Đã cập nhật')+'</div><small class="wrap">'+(S.last?'Sao lưu lần cuối: '+esc(S.last)+(S.bkLastKB?' · gửi '+S.bkLastKB+' KB':''):'Chưa sao lưu lần nào')+(S.bkErr?' · '+esc(S.bkErr):'')+'</small></div></div></div>';
+      h+='<div class="actions"><button class="btn solid" data-act="gNow" type="button">Sao lưu ngay</button><button class="btn" data-act="gRestore" type="button">Khôi phục từ Drive</button></div>';
+      h+='<p class="note">Tự động: khoảng 30 giây sau lần thay đổi cuối, app tự gửi bản sao lưu (đã nén) lên Drive. Lần mở app sau, nếu còn thay đổi chưa gửi được, app tự gửi bù. Mỗi ngày một file (ghi đè trong ngày), giữ 30 bản gần nhất. Nút đám mây ở Tổng quan: chấm cam là chưa sao lưu, xanh là đã cập nhật, đỏ là bị lỗi.</p>';
+      h+='<div class="actions" style="margin-top:0"><button class="btn" data-act="gsSetup" type="button">Đổi đường link hoặc mã</button></div>';
     }
     h+='<div class="sec"><h2>Sao lưu ra file</h2></div><div class="list"><div class="row"><div class="name"><div>File sao lưu (JSON)</div><small class="wrap">'+(S.lastFile?'Lần cuối: '+esc(S.lastFile):'Chưa sao lưu lần nào')+'</small></div></div></div>';
     h+='<div class="actions"><button class="btn" data-act="bkFile" type="button">Sao lưu ra file</button><button class="btn" data-act="bkPick" type="button">Khôi phục từ file</button></div>';
-    h+='<p class="note">File sao lưu lưu vào ứng dụng Tệp. Khôi phục sẽ thay toàn bộ dữ liệu trên máy bằng dữ liệu trong file.</p>';
+    h+='<p class="note">File sao lưu lưu vào ứng dụng Tệp. Khôi phục từ file dùng được cả file tải từ thư mục sao lưu trên Google Drive (mở app Drive › file › Tải xuống / Mở trong › Lưu vào Tệp). Khôi phục sẽ thay toàn bộ dữ liệu trên máy bằng dữ liệu trong file.</p>';
     h+='<div class="sec"><h2>Xuất Excel</h2></div><div class="actions" style="margin-top:0"><button class="btn solid" data-act="xlsx" type="button">Xuất Excel</button></div>';
     h+='<p class="note">Để xem, lọc, phân tích trên máy tính: giao dịch, số dư tài khoản, ứng hộ và giữ hộ theo người. File này không dùng để khôi phục.</p>';
-    loadGis().catch(function(){});
     return h;
   }
 
-  /* ================= GOOGLE DRIVE (v1.0.3) ================= */
-  var GCID='101064927337-u26ldlfqen8btdss0jkoe76dbveavcec.apps.googleusercontent.com',GSCOPE='https://www.googleapis.com/auth/drive.file';
-  var GFOLDER='Sổ Tài Chính - Sao lưu',GKEEP=30,GTOK=null,GEXP=0,gisP=null,GBUSY=false;
-  function loadGis(){
-    if(window.google&&google.accounts&&google.accounts.oauth2)return Promise.resolve();
-    if(gisP)return gisP;
-    gisP=new Promise(function(res,rej){var s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=function(){res()};s.onerror=function(){gisP=null;rej(new Error('Không tải được Google. Kiểm tra mạng.'))};document.head.appendChild(s)});
-    return gisP;
+  /* ================= SAO LƯU GOOGLE DRIVE QUA APPS SCRIPT (v1.0.14) =================
+     App gửi bản sao lưu nén gzip tới script của người dùng; script ghi vào Drive.
+     Không cần đăng nhập Google trong app. */
+  var GFOLDER='Sổ Tài Chính - Sao lưu',GKEEP=30,GBUSY=false,BK_T=null,BK_WAIT=30000;
+  function gsOn(){return !!(S.gsUrl&&S.gsKey)}
+  function gsErrMsg(r){
+    var e=r&&r.err;
+    if(e==='key')return 'Mã bí mật không khớp với script.';
+    if(e==='setup')return 'Script chưa đổi mã bí mật (MA_BI_MAT).';
+    if(e==='format')return 'Dữ liệu gửi lên không đúng định dạng.';
+    if(e==='notfound')return 'Không tìm thấy bản sao lưu này.';
+    if(e==='server')return 'Script báo lỗi: '+((r&&r.msg)||'không rõ');
+    return 'Script trả về lỗi'+(e?' ('+e+')':'')+'.';
   }
-  /* Lấy quyền truy cập Drive. Phải gọi ngay trong lần bấm của người dùng để iPhone không chặn cửa sổ đăng nhập. */
-  function gToken(){
-    return new Promise(function(res,rej){
-      if(GTOK&&Date.now()<GEXP-60000)return res(GTOK);
-      if(!(window.google&&google.accounts&&google.accounts.oauth2)){loadGis().catch(function(){});return rej(new Error('Đang kết nối tới Google, đợi vài giây rồi bấm lại.'))}
-      var tc=google.accounts.oauth2.initTokenClient({client_id:GCID,scope:GSCOPE,prompt:S.drive?'':'consent',
-        callback:function(r){if(!r||r.error)return rej(new Error('Google từ chối: '+((r&&r.error)||'không rõ lý do')));GTOK=r.access_token;GEXP=Date.now()+(+r.expires_in||3600)*1000;res(GTOK)},
-        error_callback:function(e){rej(new Error(e&&e.type==='popup_closed'?'Đã đóng cửa sổ đăng nhập Google.':'Không mở được cửa sổ đăng nhập Google.'))}});
-      tc.requestAccessToken();
+  /* Gửi text/plain để trình duyệt không hỏi trước (CORS), Apps Script vẫn đọc được */
+  function gsCall(body,url,key){
+    url=url||S.gsUrl;body.key=key||S.gsKey;
+    if(!navigator.onLine)return Promise.reject(new Error('Không có mạng.'));
+    var ctl=window.AbortController?new AbortController():null,tm=setTimeout(function(){if(ctl)ctl.abort()},60000);
+    return fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ctl?ctl.signal:undefined}).then(function(r){
+      clearTimeout(tm);
+      if(!r.ok)throw new Error('Không gọi được script (lỗi '+r.status+'). Kiểm tra đường link.');
+      return r.text();
+    },function(e){clearTimeout(tm);throw new Error(e&&e.name==='AbortError'?'Script phản hồi quá lâu.':'Không kết nối được script. Kiểm tra mạng và đường link.')}).then(function(t){
+      var d=null;try{d=JSON.parse(t)}catch(e){}
+      if(!d)throw new Error('Đường link không phải script sao lưu (cần link Ứng dụng web, đuôi /exec, quyền «Bất kỳ ai»).');
+      if(!d.ok)throw new Error(gsErrMsg(d));
+      return d;
     });
   }
-  function gApi(url,opt){
-    opt=opt||{};opt.headers=opt.headers||{};opt.headers.Authorization='Bearer '+GTOK;
-    return fetch(url,opt).then(function(r){
-      if(r.status===401){GTOK=null;throw new Error('Phiên Google đã hết hạn, bấm lại để đăng nhập.')}
-      if(!r.ok)return r.text().then(function(t){var e=new Error('Google Drive báo lỗi '+r.status);e.status=r.status;e.body=t;throw e});
-      return r.status===204?null:(opt.raw?r.text():r.json());
-    });
+  /* Nén gzip; máy không hỗ trợ thì gửi nguyên văn */
+  function b64(u8){var s='',n=0x8000;for(var i=0;i<u8.length;i+=n)s+=String.fromCharCode.apply(null,u8.subarray(i,i+n));return btoa(s)}
+  function unb64(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+  function gzipText(t){
+    if(!window.CompressionStream)return Promise.resolve(null);
+    return new Response(new Blob([t]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer().then(function(b){return new Uint8Array(b)});
   }
-  var GD='https://www.googleapis.com/drive/v3/files',GU='https://www.googleapis.com/upload/drive/v3/files';
-  function gq(q){return encodeURIComponent(q)}
-  function qv(v){return "'"+String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'"}
-  function gFolder(){
-    if(S.driveFolder)return gApi(GD+'/'+S.driveFolder+'?fields=id,trashed').then(function(f){if(f.trashed){S.driveFolder='';return gFolder()}return f.id},function(e){if(e.status===404){S.driveFolder='';return gFolder()}throw e});
-    return gApi(GD+'?q='+gq("name="+qv(GFOLDER)+" and mimeType='application/vnd.google-apps.folder' and trashed=false")+'&fields=files(id)').then(function(r){
-      if(r.files&&r.files.length){S.driveFolder=r.files[0].id;return S.driveFolder}
-      return gApi(GD+'?fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:GFOLDER,mimeType:'application/vnd.google-apps.folder'})}).then(function(f){S.driveFolder=f.id;return f.id});
-    });
+  function gunzip(u8){
+    if(!window.DecompressionStream)return Promise.reject(new Error('Máy này không giải nén được, hãy cập nhật iOS.'));
+    return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
   }
-  function gListBk(fid){return gApi(GD+'?q='+gq(qv(fid)+" in parents and trashed=false")+'&orderBy=modifiedTime desc&pageSize=100&fields=files(id,name,modifiedTime,size)').then(function(r){return r.files||[]})}
   function gUpload(){
-    var data=JSON.stringify(snapshot()),name='so-tai-chinh_'+todayISO()+'.json';
-    return gFolder().then(function(fid){
-      return gListBk(fid).then(function(files){
-        var same=files.filter(function(f){return f.name===name})[0];
-        var p;
-        if(same)p=gApi(GU+'/'+same.id+'?uploadType=media&fields=id',{method:'PATCH',headers:{'Content-Type':'application/json'},body:data});
-        else{
-          var b='stc'+Date.now(),body='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify({name:name,parents:[fid],mimeType:'application/json'})+'\r\n--'+b+'\r\nContent-Type: application/json\r\n\r\n'+data+'\r\n--'+b+'--';
-          p=gApi(GU+'?uploadType=multipart&fields=id',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body:body});
-        }
-        return p.then(function(){
-          var old=files.filter(function(f){return f.name!==name}).slice(GKEEP-1);
-          return Promise.all(old.map(function(f){return gApi(GD+'/'+f.id,{method:'DELETE'}).catch(function(){})}));
-        });
-      });
+    var data=JSON.stringify(snapshot(true));
+    return gzipText(data).then(function(gz){
+      var body={op:'backup',day:todayISO()};
+      if(gz)body.gz=b64(gz);else body.data=data;
+      S.bkLastKB=Math.round((gz?gz.length*4/3:data.length)/1024);
+      return gsCall(body);
     });
   }
-  function gErr(e){GBUSY=false;toast(e&&e.message?e.message:'Có lỗi khi kết nối Google Drive.')}
-  function gBackupNow(){
-    if(GBUSY)return;GBUSY=true;
-    gToken().then(function(){BKSIG_UP=dataSig();toast('Đang sao lưu lên Google Drive...');return gUpload()}).then(function(){
-      GBUSY=false;S.drive=true;S.lastDriveAt=Date.now();S.bkSig=BKSIG_UP;S.last=dmyFull(todayISO())+' '+nowTime();persist(true);draw();toast('Đã sao lưu lên Google Drive.');
-    },gErr);
+  function bkState(){return !gsOn()?'off':GBUSY?'busy':S.bkErr?'err':bkDirty()?'dirty':'ok'}
+  function bkRedraw(){if(document.visibilityState==='visible'&&(cur().v==='home'||cur().v==='backup')&&!$('sheetHost').innerHTML)draw()}
+  /* manual: bấm tay (luôn gửi, có thông báo). Tự động: chỉ gửi khi có thay đổi, im lặng. */
+  function gBackup(manual){
+    if(!gsOn()){if(manual)go('backup');return}
+    if(GBUSY){if(manual)toast('Đang sao lưu, đợi chút...');return}
+    if(!manual&&!bkDirty())return;
+    clearTimeout(BK_T);GBUSY=true;var sig=dataSig();
+    if(manual){toast('Đang sao lưu lên Google Drive...');draw()}else bkRedraw();
+    gUpload().then(function(){
+      GBUSY=false;S.bkSig=sig;S.bkErr='';S.lastDriveAt=Date.now();S.last=dmyFull(todayISO())+' '+nowTime();persist(true);
+      if(manual){draw();toast('Đã sao lưu lên Google Drive.')}else bkRedraw();
+      if(bkDirty())bkSchedule();
+    },function(e){
+      GBUSY=false;S.bkErr=(e&&e.message)||'Có lỗi khi sao lưu.';persist(true);
+      if(manual){draw();toast(S.bkErr)}else bkRedraw();
+    });
+  }
+  function gBackupNow(){gBackup(true)}
+  /* Hẹn tự sao lưu 30 giây sau lần thay đổi cuối */
+  function bkSchedule(){
+    if(!gsOn())return;clearTimeout(BK_T);
+    BK_T=setTimeout(function(){BK_T=null;if(document.visibilityState==='visible')gBackup(false)},BK_WAIT);
   }
   /* Dấu vân tay dữ liệu: biết có thay đổi chưa sao lưu (không tính cài đặt hiển thị) */
-  var BKSIG_UP='';
   function dataSig(){var x=JSON.stringify([accounts,txs,owed,held,P,TRIPS,FW,CATS,BUD,BUDY,FAV]),h=2166136261;for(var i=0;i<x.length;i++){h^=x.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)+'.'+x.length}
   function bkDirty(){return S.bkSig!==dataSig()}
-  /* Tự sao lưu khi rời app: chỉ chạy khi phiên Google còn hạn (đã bấm sao lưu/kết nối trong lần mở app này) và dữ liệu có thay đổi */
-  function gAuto(){
-    if(!S.drive||GBUSY||!GTOK||Date.now()>=GEXP-60000||!bkDirty())return;
-    GBUSY=true;var sig=dataSig();
-    gUpload().then(function(){GBUSY=false;S.lastDriveAt=Date.now();S.bkSig=sig;S.last=dmyFull(todayISO())+' '+nowTime();persist(true);if(document.visibilityState==='visible'&&cur().v==='home')draw()},function(){GBUSY=false});
-  }
   function bkIcon(){
-    var st=!S.drive?'off':GBUSY?'busy':bkDirty()?'dirty':'ok';
-    return '<button type="button" class="iconbtn bkbtn" data-act="bkQuick" data-st="'+st+'" aria-label="'+(st==='off'?'Sao lưu (chưa kết nối Drive)':st==='dirty'?'Sao lưu ngay, có thay đổi chưa sao lưu':'Sao lưu lên Google Drive')+'"><svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 7 18z"/><path d="M12 15v-5M9.5 12.5 12 10l2.5 2.5"/></svg><i aria-hidden="true"></i></button>';
+    var st=bkState();
+    return '<button type="button" class="iconbtn bkbtn" data-act="bkQuick" data-st="'+st+'" aria-label="'+(st==='off'?'Sao lưu (chưa thiết lập)':st==='err'?'Sao lưu bị lỗi, bấm để thử lại':st==='dirty'?'Sao lưu ngay, có thay đổi chưa sao lưu':'Sao lưu lên Google Drive')+'"><svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 7 18z"/><path d="M12 15v-5M9.5 12.5 12 10l2.5 2.5"/></svg><i aria-hidden="true"></i></button>';
   }
-  function gConnect(){
-    if(GBUSY)return;GBUSY=true;
-    gToken().then(function(){return gFolder()}).then(function(){GBUSY=false;S.drive=true;persist(true);draw();gBackupNow()},gErr);
+  function gsSetup(){
+    sheet('Thiết lập sao lưu','<div class="block" style="margin-top:0"><div class="cap"><span>Đường link script (đuôi /exec)</span></div><input class="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="'+esc(S.gsUrl||'')+'"></div>'
+      +'<div class="block"><div class="cap"><span>Mã bí mật</span></div><input class="text" id="gs-key" placeholder="Mã đã đặt trong script" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="'+esc(S.gsKey||'')+'"></div>'
+      +'<div class="err" id="sh-err" role="alert"></div><button class="save" data-act="gsSave" type="button">Lưu và thử kết nối</button>'
+      +(gsOn()?'<button class="save ghost" data-act="gsClear" data-cf="1" type="button">Xóa thiết lập</button>':'')
+      +'<p class="note">Mã bí mật chỉ lưu trên iPhone này, không nằm trong file sao lưu.</p>');
+  }
+  function gsSave(){
+    var u=($('gs-url').value||'').trim(),k=($('gs-key').value||'').trim(),er=$('sh-err');
+    if(!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(u)){er.textContent='Đường link phải bắt đầu bằng https://script.google.com/ và kết thúc bằng /exec.';return}
+    if(k.length<12){er.textContent='Mã bí mật cần ít nhất 12 ký tự.';return}
+    if(GBUSY)return;GBUSY=true;er.textContent='';var b=document.querySelector('[data-act="gsSave"]');if(b){b.disabled=true;b.textContent='Đang thử kết nối...'}
+    gsCall({op:'ping'},u,k).then(function(){
+      GBUSY=false;S.gsUrl=u;S.gsKey=k;S.bkErr='';persist(true);closeSheet();draw();toast('Kết nối thành công. Đang sao lưu lần đầu...');gBackup(true);
+    },function(e){GBUSY=false;if(b){b.disabled=false;b.textContent='Lưu và thử kết nối'}er.textContent=e.message});
   }
   function gRestoreList(){
-    if(GBUSY)return;GBUSY=true;
-    gToken().then(function(){return gFolder()}).then(gListBk).then(function(files){
-      GBUSY=false;
+    if(!gsOn())return gsSetup();
+    if(GBUSY)return toast('Đang sao lưu, đợi chút...');GBUSY=true;toast('Đang tải danh sách bản sao lưu...');
+    gsCall({op:'list'}).then(function(r){
+      GBUSY=false;var files=r.files||[];
       if(!files.length)return sheet('Khôi phục từ Google Drive','<div class="empty">Chưa có bản sao lưu nào trên Drive.</div>');
-      sheet('Chọn bản sao lưu','<div class="list">'+files.slice(0,GKEEP).map(function(f){var d=new Date(f.modifiedTime);return '<button type="button" class="row rowbtn" data-act="gPick" data-a="'+esc(f.id)+'"><div class="name"><div>'+esc(f.name.replace('so-tai-chinh_','').replace('.json',''))+'</div><small>Cập nhật '+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+(f.size?' · '+Math.round(f.size/1024)+' KB':'')+'</small></div><span class="chev">›</span></button>'}).join('')+'</div>');
-    },gErr);
+      sheet('Chọn bản sao lưu','<div class="list">'+files.slice(0,GKEEP).map(function(f){var d=new Date(f.t);return '<button type="button" class="row rowbtn" data-act="gPick" data-a="'+esc(f.id)+'"><div class="name"><div>'+esc(f.name.replace('so-tai-chinh_','').replace(/\.json(\.gz)?$/,''))+'</div><small>Cập nhật '+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+(f.size?' · '+Math.round(f.size/1024)+' KB':'')+'</small></div><span class="chev">›</span></button>'}).join('')+'</div>');
+    },function(e){GBUSY=false;toast(e.message)});
   }
   function gPick(id){
-    if(GBUSY)return;GBUSY=true;
-    gToken().then(function(){return gApi(GD+'/'+id+'?alt=media',{raw:true})}).then(function(t){
+    if(GBUSY)return;GBUSY=true;toast('Đang tải bản sao lưu...');
+    gsCall({op:'get',id:id}).then(function(r){return gunzip(unb64(r.gz))}).then(function(t){
       GBUSY=false;var d=null;try{d=JSON.parse(t)}catch(e){}
       if(!d||d.app!=='so-tai-chinh'||!d.state){toast('Bản sao lưu không đúng định dạng.');return}
       confirmRestore(d,'Bản trên Google Drive');
-    },gErr);
-  }
-  function gOff(){
-    try{if(GTOK&&window.google&&google.accounts&&google.accounts.oauth2)google.accounts.oauth2.revoke(GTOK,function(){})}catch(e){}
-    GTOK=null;S.drive=false;persist(true);draw();toast('Đã ngắt kết nối Google Drive. Các bản sao lưu cũ vẫn còn trên Drive.');
-  }
-  function backupDue(){
-    if(!S.drive||!S.auto||S.auto==='off')return false;
-    var days=S.auto==='daily'?1:7;return !S.lastDriveAt||(Date.now()-S.lastDriveAt)>=days*864e5-36e5;
-  }
-  function driveBanner(){
-    if(!backupDue())return '';
-    var n=S.lastDriveAt?Math.floor((Date.now()-S.lastDriveAt)/864e5):0;
-    return '<div class="warnbox" style="margin-top:12px;display:flex;align-items:center;gap:10px"><span style="flex:1">'+(S.lastDriveAt?'Đã '+n+' ngày chưa sao lưu lên Google Drive.':'Chưa sao lưu lên Google Drive lần nào.')+'</span><button class="btn solid" data-act="gNow" type="button">Sao lưu ngay</button></div>';
+    },function(e){GBUSY=false;toast(e.message)});
   }
   function confirmRestore(d,label){
     PEND=d;var st0=d.state,n=(st0.txs||[]).length,na=(st0.accounts||[]).length;
@@ -2422,7 +2427,7 @@ body.navhide .tabbar{box-shadow:none}
 
   function stamp(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())}
   function backupFile(){
-    var data=JSON.stringify(snapshot());
+    var data=JSON.stringify(snapshot(true));
     var name='so-tai-chinh_'+stamp()+'.json',blob=new Blob([data],{type:'application/json'}),file=null;
     try{file=new File([blob],name,{type:'application/json'})}catch(e){}
     var done=function(){S.lastFile=dmyFull(todayISO())+' '+nowTime();persist();draw();toast('Đã tạo file sao lưu.')};
@@ -2431,12 +2436,15 @@ body.navhide .tabbar{box-shadow:none}
   }
   var PEND=null;
   function pickRestore(){
-    var i=document.createElement('input');i.type='file';i.accept='.json,application/json';
+    var i=document.createElement('input');i.type='file';i.accept='.json,.gz,application/json,application/gzip';
     i.onchange=function(){var f=i.files&&i.files[0];if(!f)return;var r=new FileReader();r.onload=function(){
-      var d=null;try{d=JSON.parse(r.result)}catch(e){}
-      if(!d||d.app!=='so-tai-chinh'||!d.state){toast('File không đúng định dạng sao lưu của app.');return}
-      confirmRestore(d,'File «'+f.name+'»');
-    };r.readAsText(f)};
+      var u8=new Uint8Array(r.result),bad=function(){toast('File không đúng định dạng sao lưu của app.')};
+      (u8[0]===0x1f&&u8[1]===0x8b?gunzip(u8):Promise.resolve(new TextDecoder('utf-8').decode(u8))).then(function(t){
+        var d=null;try{d=JSON.parse(t)}catch(e){}
+        if(!d||d.app!=='so-tai-chinh'||!d.state)return bad();
+        confirmRestore(d,'File «'+f.name+'»');
+      },bad);
+    };r.readAsArrayBuffer(f)};
     i.click();
   }
   /* ================= BẢNG CHỌN (SHEET) ================= */
@@ -2770,14 +2778,14 @@ body.navhide .tabbar{box-shadow:none}
       case 'nameDel':{var e2=SH.extra,ar=CATS[C.kind];if(e2.k==='item'){delete BUDY[ar[e2.g].g+' · '+ar[e2.g].i[e2.i]];ar[e2.g].i.splice(e2.i,1)}else if(e2.k==='grp'){var og=ar[e2.g].g;delete BUD[og];Object.keys(BUDY).forEach(function(k){if(k.split(' · ')[0]===og)delete BUDY[k]});ar.splice(e2.g,1)}closeSheet();toast('Đã xóa. Giao dịch cũ vẫn giữ tên cũ.');return draw();}
       case 'bkFile':return backupFile();
       case 'bkPick':return pickRestore();
-      case 'bkRestoreOk':{if(!PEND)return closeSheet();var keep={drive:S.drive,driveFolder:S.driveFolder,auto:S.auto,lastDriveAt:S.lastDriveAt,last:S.last,lastFile:S.lastFile};restore(PEND.state);for(var kk in keep)if(keep[kk]!==undefined)S[kk]=keep[kk];PEND=null;closeSheet();persist(true);tab='home';stack=[{v:'home'}];newAddState();draw('tab');return toast('Đã khôi phục dữ liệu.')}
-      case 'auto':S.auto=a;return draw();
-      case 'gConnect':return gConnect();
+      case 'bkRestoreOk':{if(!PEND)return closeSheet();var keep={gsUrl:S.gsUrl,gsKey:S.gsKey,bkErr:S.bkErr,lastDriveAt:S.lastDriveAt,last:S.last,lastFile:S.lastFile};restore(PEND.state);for(var kk in keep)if(keep[kk]!==undefined)S[kk]=keep[kk];PEND=null;closeSheet();persist(true);tab='home';stack=[{v:'home'}];newAddState();draw('tab');return toast('Đã khôi phục dữ liệu.')}
+      case 'gsSetup':return gsSetup();
+      case 'gsSave':return gsSave();
+      case 'gsClear':{clearTimeout(BK_T);S.gsUrl='';S.gsKey='';S.bkErr='';closeSheet();persist(true);draw();return toast('Đã xóa thiết lập sao lưu. Các bản cũ vẫn còn trên Drive.')}
       case 'gNow':return gBackupNow();
       case 'gRestore':return gRestoreList();
       case 'gPick':closeSheet();return gPick(a);
-      case 'gOff':return gOff();
-      case 'bkQuick':{if(!S.drive)return go('backup');return gBackupNow()}
+      case 'bkQuick':return gBackup(true);
     }
   }
   /* 1.0.8: các nút Xóa có data-cf phải xác nhận lần nữa */
@@ -3433,8 +3441,9 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.13',DBN='so-tai-chinh',KEY='state';
-  function snapshot(){return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:S,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
+  var APP_VER='1.0.14',DBN='so-tai-chinh',KEY='state';
+  /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
+  function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
     S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};BUDY=d.BUDY||{};if(!d.BUDY&&d.S&&d.S.demo){BUD=JSON.parse(JSON.stringify(BUD_DEF));BUDY=JSON.parse(JSON.stringify(BUDY_DEF))}owed=d.owed||{};held=d.held||{};P=d.P||{};
     txs=d.txs||[];nextId=d.nextId||1;TRIPS=d.TRIPS||[];TXN=d.TXN||1;FW=d.FW||{};RATES=d.RATES||{};LAST_TRIP=d.LAST_TRIP||null;
@@ -3446,9 +3455,10 @@ body.navhide .tabbar{box-shadow:none}
   var saveT=null,SAVE_OK=true;
   function persist(now){clearTimeout(saveT);var f=function(){idbPut(JSON.stringify(snapshot().state)).then(function(){SAVE_OK=true},function(){if(SAVE_OK)toast('Không lưu được dữ liệu trên máy. Hãy sao lưu ra file.');SAVE_OK=false})};if(now)f();else saveT=setTimeout(f,400)}
   /* lưu sau mỗi thao tác làm đổi dữ liệu */
-  var _draw=draw;draw=function(a,y){_draw(a,y);persist()};
-  var _toast=toast;toast=function(m){_toast(m);persist()};
-  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'){persist(true);try{gAuto()}catch(e){}}else{try{gAuto()}catch(e){}}});
+  var _draw=draw;draw=function(a,y){_draw(a,y);persist();bkSchedule()};
+  var _toast=toast;toast=function(m){_toast(m);persist();bkSchedule()};
+  /* Rời app: lưu ngay và thử gửi nốt thay đổi. Quay lại app: gửi bù nếu còn thay đổi. */
+  document.addEventListener('visibilitychange',function(){try{if(document.visibilityState==='hidden'){persist(true);if(gsOn()&&!GBUSY&&bkDirty())gBackup(false)}else setTimeout(function(){gBackup(false)},2000)}catch(e){}});
   window.addEventListener('pagehide',function(){persist(true)});
 
   applyTheme();
@@ -3459,7 +3469,7 @@ body.navhide .tabbar{box-shadow:none}
       if(still&&n-lt<320&&!(e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]'))){e.preventDefault();var b=e.target.closest&&e.target.closest('button,[data-act],a,summary,label');if(b)b.click()}
       lt=still?n:0},{passive:false});
     document.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false})})();
-  function start(){newAddState();setTabH();draw();setTabH();if(S.drive)loadGis().catch(function(){})}
+  function start(){newAddState();setTabH();draw();setTabH();setTimeout(function(){try{gBackup(false)}catch(e){}},3000)}
   (window.indexedDB?idbGet():Promise.reject()).then(function(v){
     if(v){restore(JSON.parse(v))}else{seed();seedTrips();S.demo=true}
     start();
