@@ -2827,7 +2827,8 @@ body.navhide .tabbar{box-shadow:none}
         var ob=parseMoney($('af-open'));if(AF.group==='credit'&&ob>0)ob=-ob;
         var id='a'+Date.now(),na={id:id,name:nm,group:AF.group,bal:ob,active:true};if(AF.logo!=='auto')na.logo=AF.logo;if(AF.logo==='img')na.logoImg=AF.logoImg;accounts.push(na);toast('Đã tạo tài khoản.');back();return}
       case 'pplOpen':{var pk=a.split('|'),pnm=pk.slice(1).join('|');closeSheet();newAddState({type:pk[0]==='owed'?'nhan':'tra',person:pnm,personManual:true});tab='add';stack=[{v:'add'}];return draw('tab')}
-      case 'pdir':{if(st.type===a)return;readForm();st.type=a;st.personAuto=false;if(!st.person){var dq=dirPeople(a);if(dq.length===1){st.person=dq[0][0];$('person').value=st.person;st.personAuto=true}}renderForm();applyAuto();return}
+      case 'pdir':{if(st.type===a)return;var scd=$('screen'),oldd=segSnap(scd),dd=(a==='nhan'||a==='tra')?1:-1;readForm();st.type=a;st.personAuto=false;if(!st.person){var dq=dirPeople(a);if(dq.length===1){st.person=dq[0][0];$('person').value=st.person;st.personAuto=true}}renderForm();applyAuto();
+        if(!reduced()){segAnim(scd,oldd);var afd=false;[].forEach.call(scd.children,function(k){if(k.id==='subseg'){afd=true;return}if(afd&&!k.hidden&&k.id!=='amountBox')slideIn(k,dd)})}return}
       case 'payAll':{setAmount(+a);updateAmtUI();applyAuto();if(document.body.classList.contains('kbup'))$('amount').focus();return}
       case 'pAgain':{var pn=curPerson();newAddState({type:a,person:pn,personManual:true});tab='add';stack=[{v:'add'}];return draw('tab')}
       case 'pHistOpen':{var hn0=curPerson();H=newH(null);H.person=hn0;H.type=a;H.p='all';return go('hist')}
@@ -3569,7 +3570,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.17',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.18',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
