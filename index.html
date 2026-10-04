@@ -16,6 +16,7 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}*{-webkit-tap-highlight-color:transparent}html{background:#F3F1EC}@media (prefers-color-scheme:dark){html{background:#0B1426}}html,body{height:100%;overflow:hidden;overscroll-behavior:none}#scr{position:fixed;left:0;right:0;top:0;bottom:0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}@media print{html,body{height:auto;overflow:visible}#scr{position:static;overflow:visible}}</style>
+<style>#subseg{margin-top:8px}.pchip{display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1.25;padding:8px 14px!important;text-align:left}.pchip small{font-weight:500;font-size:12px;color:var(--ink-3)}.pchip[aria-pressed="true"] small{color:inherit;opacity:.85}.overw{color:var(--neg);font-weight:600}</style>
 <style>html{background:var(--bg)!important}#sbar{display:none}#scr>.app{padding-top:calc(env(safe-area-inset-top,0px) + 12px)}</style>
 </head>
 <body>
@@ -701,7 +702,14 @@ body.navhide .tabbar{box-shadow:none}
       case 'tra':a.bal-=m;held[t.person]=(held[t.person]||0)-m;break;
       case 'dc':a.bal+=t.delta*d;break;
     }
+    if(t.person&&PTYPE[t.type])normP(t.person);
   }
+  /* Số dư mỗi người tự bù trừ (v1.0.17): một số ròng, dương = người đó nợ bạn, âm = bạn giữ tiền của họ */
+  var PTYPE={ung:1,giu:1,nhan:1,tra:1};
+  function pNet(n){return (owed[n]||0)-(held[n]||0)}
+  function normP(n){var v=pNet(n);if(v>0){owed[n]=v;if(n in held)held[n]=0}else{held[n]=-v;if(n in owed)owed[n]=0}}
+  function normAllP(){var k;for(k in owed)normP(k);for(k in held)normP(k)}
+  function txEff(t){return (t.type==='ung'||t.type==='tra')?t.amount:(t.type==='nhan'||t.type==='giu')?-t.amount:0}
   function sortTx(){txs.sort(function(a,b){if(a.date!==b.date)return a.date<b.date?1:-1;var x=a.time||'',y=b.time||'';if(x!==y)return x<y?1:-1;return b.id-a.id})}
   function ensurePerson(n){if(!P[n])P[n]={hidden:false};else P[n].hidden=false}
   function canonPerson(name){
@@ -1288,13 +1296,26 @@ body.navhide .tabbar{box-shadow:none}
     out.sort(function(a,b){return a.last<b.last?1:a.last>b.last?-1:0});
     return out.slice(0,8).map(function(x){return x.n});
   }
+  /* Số dư ròng của một người, không tính giao dịch đang sửa */
+  function pNetEx(n){var v=pNet(n);if(st&&st.editId){var o=findTx(st.editId);if(o&&o.person===n&&PTYPE[o.type])v-=txEff(o)}return v}
+  /* Số còn lại theo chiều của Nhận lại (người đó nợ bạn) / Trả lại (bạn giữ hộ) */
+  function pDirBal(n,t){var v=pNetEx(n);return Math.max(t==='nhan'?v:-v,0)}
+  function dirPeople(t){var o=[];Object.keys(P).forEach(function(n){var d=pDirBal(n,t);if(d>0)o.push([n,d])});o.sort(function(a,b){return b[1]-a[1]});return o}
+  function curPName(){var el=$('person');if(!el)return '';var v=el.value.trim().replace(/\s+/g,' ');return v?canonPerson(v):''}
+  function pStateTxt(n,v){return v>0?esc(n)+' nợ bạn <b class="num">'+fmt(v)+'</b>':v<0?'bạn giữ hộ '+esc(n)+' <b class="num">'+fmt(-v)+'</b>':'đã tất toán'}
   function personNote(){
     var el=$('person'),nt=$('personNote');if(!el||!nt)return;
-    var v=el.value.trim().replace(/\s+/g,' ');
-    if(!v){nt.textContent='Người mới chỉ cần gõ tên, app tự thêm. Người đã tất toán không hiện ở đây, gõ tên là dùng lại.';return}
-    var c=canonPerson(v);
-    if(P[c]){var s=pStat(c);nt.textContent=s.bal?'Đang theo dõi «'+c+'».':(P[c].hidden?'«'+c+'» đang ẩn, lưu xong sẽ hiện lại.':'Dùng lại «'+c+'» (đã tất toán).')}
-    else nt.textContent='Người mới «'+v+'», app sẽ tự thêm khi lưu.';
+    var t=st.type,v=el.value.trim().replace(/\s+/g,' '),back=(t==='nhan'||t==='tra');
+    if(!v){nt.textContent=back?'Chọn người ở trên hoặc gõ tên.':'Người mới chỉ cần gõ tên, app tự thêm. Người đã tất toán không hiện ở đây, gõ tên là dùng lại.';return}
+    var c=canonPerson(v),known=!!P[c],amt=parseMoney($('amount')),before=known?pNetEx(c):0,after=before+txEff({type:t,amount:amt}),h='';
+    if(!known)h='Người mới «'+esc(v)+'», app sẽ tự thêm khi lưu.';
+    else if(P[c].hidden)h='«'+esc(c)+'» đang ẩn, lưu xong sẽ hiện lại.';
+    if(known||amt){
+      var line=amt?'Hiện tại: '+pStateTxt(c,before)+' → sau khi lưu: '+pStateTxt(c,after)+'.':'Hiện tại: '+pStateTxt(c,before)+'.';
+      if(back&&amt){var B=pDirBal(c,t);if(amt>B)line='<span class="overw">'+(B?'Vượt <b class="num">'+fmt(amt-B)+'</b> so với số còn lại.':(t==='tra'?'Bạn không giữ tiền của '+esc(c)+'.':esc(c)+' không nợ bạn.'))+'</span> Sau khi lưu: '+pStateTxt(c,after)+'.'}
+      h=(h?h+' ':'')+line;
+    }
+    nt.innerHTML=h;
   }
   function personRow(n){
     var s=pStat(n),sub='';
@@ -1321,7 +1342,7 @@ body.navhide .tabbar{box-shadow:none}
     if(!P[name])return head('Không tìm thấy')+'<div class="empty">Người này không còn trong danh sách.</div>';
     var s=pStat(name),list=txs.filter(function(t){return t.person===name});
     var h=head(esc(name),P[name].hidden?'<span class="badge">Đã ẩn</span>':'');
-    if(s.o)h+='<div class="hero tap herobtn" style="margin-bottom:10px" role="button" tabindex="0" data-act="pHistOpen" data-a="ung" aria-label="Xem lịch sử ứng hộ"><div class="label"><span>Đang nợ bạn</span><span class="go" aria-hidden="true">›</span></div><div class="big num">'+fmt(s.o)+'</div><div class="split"><span>Khoản bạn đã trả trước cho '+esc(name)+'</span></div></div><div class="actions" style="margin-top:0;margin-bottom:14px"><button class="btn solid" data-act="pplOpen" data-a="owed|'+esc(name)+'" type="button">Nhận lại</button></div>';
+    if(s.o)h+='<div class="hero tap herobtn" style="margin-bottom:10px" role="button" tabindex="0" data-act="pHistOpen" data-a="ung" aria-label="Xem lịch sử ứng hộ"><div class="label"><span>Đang nợ bạn</span><span class="go" aria-hidden="true">›</span></div><div class="big num">'+fmt(s.o)+'</div><div class="split"><span>Khoản '+esc(name)+' cần trả lại cho bạn</span></div></div><div class="actions" style="margin-top:0;margin-bottom:14px"><button class="btn solid" data-act="pplOpen" data-a="owed|'+esc(name)+'" type="button">Nhận lại</button></div>';
     if(s.h)h+='<div class="hero tap herobtn" style="margin-bottom:10px" role="button" tabindex="0" data-act="pHistOpen" data-a="giu" aria-label="Xem lịch sử giữ hộ"><div class="label"><span>Bạn đang giữ hộ</span><span class="go" aria-hidden="true">›</span></div><div class="big num">'+fmt(s.h)+'</div><div class="split"><span>Tiền của '+esc(name)+', không tính là tiền của bạn</span></div></div><div class="actions" style="margin-top:0;margin-bottom:14px"><button class="btn solid" data-act="pplOpen" data-a="held|'+esc(name)+'" type="button">Trả lại</button></div>';
     if(!s.bal)h+='<div class="hero tap herobtn" role="button" tabindex="0" data-act="pHistOpen" data-a="all" aria-label="Xem lịch sử"><div class="label"><span>Tình trạng</span><span class="go" aria-hidden="true">›</span></div><div class="big" style="font-size:22px">Đã tất toán</div><div class="split"><span>Không còn khoản nào chờ nhận hoặc phải trả.</span></div></div><div class="actions"><button class="btn" data-act="pAgain" data-a="ung" type="button">Ứng hộ thêm</button><button class="btn" data-act="pAgain" data-a="giu" type="button">Giữ hộ thêm</button></div>';
     h+='<div class="sec"><h2>Gần đây</h2>'+(list.length>5?'<button class="link" data-act="pHistOpen" data-a="all" type="button">Xem tất cả ('+list.length+') ›</button>':'')+'</div>'+groupedTx(list.slice(0,5));
@@ -1339,6 +1360,7 @@ body.navhide .tabbar{box-shadow:none}
     txs.forEach(function(t){if(t.person===src)t.person=dst});
     if(owed[src]!==undefined){owed[dst]=(owed[dst]||0)+owed[src];delete owed[src]}
     if(held[src]!==undefined){held[dst]=(held[dst]||0)+held[src];delete held[src]}
+    normP(dst);
     if(src!==dst){var hid=P[dst]?P[dst].hidden:P[src].hidden;P[dst]={hidden:hid};delete P[src]}
     if(pStat(dst).bal)P[dst].hidden=false;
   }
@@ -1354,10 +1376,13 @@ body.navhide .tabbar{box-shadow:none}
     {id:'ung',label:'Ứng hộ',hint:'Bạn trả tiền trước cho người khác (du lịch, ăn uống chung...). Họ sẽ gửi lại sau.'},
     {id:'giu',label:'Giữ hộ',hint:'Bạn nhận tiền của người khác để giữ giúp. Số này không tính là tiền của bạn.'}
   ];
+  var SUBT={ung:[['ung','Ứng ra'],['nhan','Nhận lại']],giu:[['giu','Nhận giữ'],['tra','Trả lại']]};
+  var HINT2={nhan:'Người khác trả lại tiền bạn đã ứng trước. Nhận một phần hay nhận hết đều được.',tra:'Bạn trả lại tiền đang giữ hộ. Trả một phần hay trả hết đều được.'};
+  function baseT(t){return t==='nhan'?'ung':t==='tra'?'giu':t}
   function vAdd(){
     var edit=!!st.editId,fromT=!!st.fromTrip;
     var h=head(fromT?(st.tripEditId?'Sửa khoản chi':'Khoản chi chuyến đi'):(edit?'Sửa giao dịch':'Thêm giao dịch'),(edit||fromT)?'':'<button class="btn" data-go="hist" type="button">Lịch sử</button>',!(edit||fromT));
-    h+='<div class="seg" id="types" role="group" aria-label="Loại giao dịch"'+(fromT?' hidden':'')+'></div><div class="hint" id="hint"></div>';
+    h+='<div class="seg" id="types" role="group" aria-label="Loại giao dịch"'+(fromT?' hidden':'')+'></div><div class="seg" id="subseg" role="group" aria-label="Chiều giao dịch" hidden></div><div class="hint" id="hint"></div>';
     h+='<div class="amount t-chi" id="amountBox"><label for="amount">Số tiền</label><div class="field"><input id="amount" class="money" inputmode="numeric" autocomplete="off" placeholder="0"><span class="cur">₫</span></div><div class="quick" id="quick"></div><div class="words" id="words"></div></div>';
     h+='<div class="block" id="tripBlock" hidden><div class="cap"><span>Chuyến đi / chia tiền</span><span id="tripTag"></span></div><div class="chips" id="tripChips"></div><div class="note" id="tripNote"></div></div>';
     h+='<div class="block" id="catBlock"><div class="cap"><span id="catCap">Hạng mục</span><button class="chip soft" id="allBtn" data-act="allCats" type="button">Tất cả</button></div><div class="chips" id="favCats"></div><div class="note" id="catPicked"></div></div>';
@@ -1391,10 +1416,11 @@ body.navhide .tabbar{box-shadow:none}
     if(st.editId||!$('amount')||spForeign())return;
     var amt=parseMoney($('amount'));if(!amt)return;
     var t=st.type,agg=predictAgg(t,amt),b;
-    if((t==='chi'||t==='thu')&&!st.catManual){b=best(agg.cat);if(b.key&&b.conf>=0.4&&b.w>=0.05){st.cat=b.key;st.catAuto=true}else if(st.catAuto){st.cat=null;st.catAuto=false}}
+    if((t==='chi'||t==='thu')&&!st.catManual){b=best(agg.cat);if(b.key){st.cat=b.key;st.catAuto=true}else if(st.catAuto){st.cat=null;st.catAuto=false}}
     if(!st.accManual){var a2=((t==='chi'||t==='thu')&&st.cat)?predictAgg(t,amt,st.cat):agg;b=best(a2.acc);if(b.key&&b.conf>=0.4&&b.w>=0.05&&acc(b.key)&&acc(b.key).active){st.acc=b.key;st.accAuto=true}}
     if(t==='chuyen'&&!st.toManual){b=best(agg.to);if(b.key&&b.conf>=0.4&&b.w>=0.05&&acc(b.key)&&acc(b.key).active&&b.key!==st.acc)st.to=b.key}
     fixTo();
+    if((t==='nhan'||t==='tra')&&!st.personManual){var dq=dirPeople(t),pi2=$('person'),fm={};dq.forEach(function(x){fm[x[0]]=agg.person[x[0]]||0});b=best(fm);var pick=dq.length===1?dq[0][0]:(b.key&&b.conf>=0.5&&b.w>=0.05?b.key:null);if(pick&&(!pi2.value.trim()||st.personAuto)){pi2.value=pick;st.personAuto=true}}
     if((t==='ung'||t==='giu')&&!st.personManual){b=best(agg.person);var pi=$('person');if(b.key&&b.conf>=0.5&&b.w>=0.05&&(!pi.value.trim()||st.personAuto)){pi.value=b.key;st.personAuto=true}}
     renderForm();
   }
@@ -1415,8 +1441,10 @@ body.navhide .tabbar{box-shadow:none}
     if(!fgn){
       if(amt>0&&amt<1000)h+='<button type="button" class="chip soft" data-act="mul" data-a="1000">'+amt+' nghìn = '+fmtF(amt*1000)+'</button><button type="button" class="chip soft" data-act="mul" data-a="1000000">'+amt+' triệu = '+fmtF(amt*1e6)+'</button>';
     }
+    if(st.type==='nhan'||st.type==='tra'){var pc=curPName(),pb=pc&&P[pc]?pDirBal(pc,st.type):0;if(pb>0&&amt!==pb)h+='<button type="button" class="chip soft allchip" data-act="payAll" data-a="'+pb+'">'+(st.type==='tra'?'Trả hết ':'Nhận hết ')+pb.toLocaleString('vi-VN')+'</button>'}
     $('quick').innerHTML=h;$('quick').hidden=!h;
     $('words').textContent=(!fgn&&amt)?'Bằng chữ: '+words(amt):'';
+    if(PTYPE[st.type])personNote();
   }
   function initAdd(){
     $('amount').value=st.amount?fmtAmtIn(st.amount,(st.type==='chi'&&st.kind==='trip'&&st.sp)?st.sp.cur:'VND'):'';
@@ -1440,16 +1468,19 @@ body.navhide .tabbar{box-shadow:none}
   }
   function renderForm(){
     var t=st.type,on=spOn(),fgn=spForeign();
-    $('types').innerHTML=TYPES.map(function(x){return '<button type="button" data-type="'+x.id+'" aria-pressed="'+(t===x.id)+'">'+x.label+'</button>'}).join('');
-    $('hint').textContent=TYPES.filter(function(x){return x.id===t})[0].hint;$('hint').hidden=(t==='chi'||t==='thu');
-    $('amountBox').className='amount t-'+t;
+    var bt=baseT(t);
+    $('types').innerHTML=TYPES.map(function(x){return '<button type="button" data-type="'+x.id+'" aria-pressed="'+(bt===x.id)+'">'+x.label+'</button>'}).join('');
+    var sub=SUBT[bt];$('subseg').hidden=!sub;
+    if(sub)$('subseg').innerHTML=sub.map(function(x){return '<button type="button" data-act="pdir" data-a="'+x[0]+'" aria-pressed="'+(t===x[0])+'">'+x[1]+'</button>'}).join('');
+    $('hint').textContent=HINT2[t]||TYPES.filter(function(x){return x.id===t})[0].hint;$('hint').hidden=(t==='chi'||t==='thu');
+    $('amountBox').className='amount t-'+t;var albl=$('amountBox').querySelector('label');if(albl)albl.textContent=t==='nhan'?'Số tiền nhận lại':t==='tra'?'Số tiền trả lại':'Số tiền';
     var amEl=$('amount');amEl.classList.toggle('money',!fgn);amEl.setAttribute('inputmode',fgn?'decimal':'numeric');amEl.placeholder=fgn?'0,00':'0';
     var cuEl=$('amountBox').querySelector('.cur');if(cuEl)cuEl.textContent=fgn?st.sp.cur:'₫';
-    var showCat=(t==='chi'||t==='thu'),showP=(t==='ung'||t==='giu');
+    var showCat=(t==='chi'||t==='thu'),showP=!!PTYPE[t];
     $('catBlock').hidden=!showCat;$('personBlock').hidden=!showP;$('toBlock').hidden=(t!=='chuyen');
-    $('accCap').textContent=t==='chuyen'?'Từ tài khoản':(t==='thu'||t==='giu')?'Nhận vào tài khoản':'Trả từ tài khoản';
+    $('accCap').textContent=t==='chuyen'?'Từ tài khoản':(t==='thu'||t==='giu'||t==='nhan')?'Nhận vào tài khoản':'Trả từ tài khoản';
     $('accTag').innerHTML=st.accAuto&&!st.accManual?'<span class="autotag">Tự gợi ý</span>':'';
-    $('personCap').textContent=t==='ung'?'Ứng cho ai':'Giữ hộ ai';
+    $('personCap').textContent={ung:'Ứng cho ai',giu:'Giữ hộ ai',nhan:'Nhận lại từ ai',tra:'Trả lại cho ai'}[t]||'Người';
     var tb=$('tripBlock');tb.hidden=!(t==='chi'&&!st.editId&&!st.tripEditId);
     if(!tb.hidden){
       var opens=TRIPS.filter(function(x){return x.status==='open'});
@@ -1475,8 +1506,9 @@ body.navhide .tabbar{box-shadow:none}
       }
     }
     if(showP){
-      $('personChips').innerHTML=personSuggest().map(function(n){return '<button type="button" class="chip" data-person="'+esc(n)+'">'+esc(n)+'</button>'}).join('');
-      personNote();
+      var cp=curPName();
+      if(t==='nhan'||t==='tra'){var dp=dirPeople(t);$('personChips').innerHTML=dp.length?dp.map(function(x){return '<button type="button" class="chip pchip" data-person="'+esc(x[0])+'" aria-pressed="'+(cp===x[0])+'">'+esc(x[0])+'<small class="num">'+fmt(x[1])+'</small></button>'}).join(''):'<div class="note" style="margin:0">'+(t==='tra'?'Hiện không giữ hộ ai.':'Hiện không ai nợ bạn.')+'</div>'}
+      else $('personChips').innerHTML=personSuggest().map(function(n){return '<button type="button" class="chip" data-person="'+esc(n)+'">'+esc(n)+'</button>'}).join('');
     }
     fixSpAcc();
     $('accBlock').hidden=(on&&st.kind==='trip'&&st.sp.payer!==ME);
@@ -1493,20 +1525,20 @@ body.navhide .tabbar{box-shadow:none}
     if(t==='chi'&&st.kind!=='none'&&!st.editId)return saveSplit();
     if(!st.amount)err='Nhập số tiền.';
     else if((t==='chi'||t==='thu')&&!st.cat)err='Chọn hạng mục.';
-    else if((t==='ung'||t==='giu')&&!st.person)err='Nhập tên người.';
+    else if(PTYPE[t]&&!st.person)err='Nhập tên người.';
     else if(t==='chuyen'&&(!st.to||st.to===st.acc))err='Chọn hai tài khoản khác nhau.';
     $('err').textContent=err;if(err)return;
     var tx={type:t,amount:st.amount,acc:st.acc,date:st.date,note:st.memo};
     if(t==='chi'||t==='thu')tx.cat=st.cat;
     if(t==='chuyen')tx.to=st.to;
-    if(t==='ung'||t==='giu')tx.person=canonPerson(st.person);
+    if(PTYPE[t])tx.person=canonPerson(st.person);
     var edit=st.editId,old=edit?findTx(edit):null;
     tx.time=(old&&old.time)?old.time:nowTime();
     if(edit){removeTx(edit)}
     addTx(tx);
-    var a=acc(tx.acc);
-    if(edit){toast('Đã cập nhật.');stack.pop();draw('pop',cur().sy||0);return}
-    afterSave('Đã lưu. '+a.name+' còn '+fmt(a.bal)+'.');
+    var a=acc(tx.acc),pv=tx.person?pNet(tx.person):0,pm=tx.person?(pv>0?tx.person+' nợ bạn '+fmt(pv):pv<0?'Bạn giữ hộ '+tx.person+' '+fmt(-pv):tx.person+' đã tất toán')+'.':'';
+    if(edit){toast(pm?'Đã cập nhật. '+pm:'Đã cập nhật.');stack.pop();draw('pop',cur().sy||0);return}
+    afterSave(pm&&(t==='nhan'||t==='tra')?'Đã lưu. '+pm:'Đã lưu. '+a.name+' còn '+fmt(a.bal)+'.');
   }
 
 
@@ -2055,7 +2087,7 @@ body.navhide .tabbar{box-shadow:none}
       h+='<div class="list"><div class="row"><div class="name"><div>'+(st==='err'?'Sao lưu bị lỗi':st==='dirty'?'Có thay đổi chưa sao lưu':st==='busy'?'Đang sao lưu...':'Đã cập nhật')+'</div><small class="wrap">'+(S.last?'Sao lưu lần cuối: '+esc(S.last)+(S.bkLastKB?' · gửi '+S.bkLastKB+' KB':''):'Chưa sao lưu lần nào')+(S.bkErr?' · '+esc(S.bkErr):'')+'</small></div></div></div>';
       h+='<div class="actions"><button class="btn solid" data-act="gNow" type="button">Sao lưu ngay</button><button class="btn" data-act="gRestore" type="button">Khôi phục từ Drive</button></div>';
       h+='<p class="note">Tự động: khoảng 30 giây sau lần thay đổi cuối, app tự gửi bản sao lưu (đã nén) lên Drive. Lần mở app sau, nếu còn thay đổi chưa gửi được, app tự gửi bù. Mỗi ngày một file (ghi đè trong ngày), giữ 30 bản gần nhất. Nút đám mây ở Tổng quan: chấm cam là chưa sao lưu, xanh là đã cập nhật, đỏ là bị lỗi.</p>';
-      h+='<div class="actions" style="margin-top:0"><button class="btn" data-act="gsSetup" type="button">Đổi đường link hoặc mã</button></div>';
+      h+='<div class="actions" style="margin-top:14px"><button class="btn" data-act="gsSetup" type="button">Đổi đường link hoặc mã</button></div>';
     }
     h+='<div class="sec"><h2>Sao lưu ra file</h2></div><div class="list"><div class="row"><div class="name"><div>File sao lưu (JSON)</div><small class="wrap">'+(S.lastFile?'Lần cuối: '+esc(S.lastFile):'Chưa sao lưu lần nào')+'</small></div></div></div>';
     h+='<div class="actions"><button class="btn" data-act="bkFile" type="button">Sao lưu ra file</button><button class="btn" data-act="bkPick" type="button">Khôi phục từ file</button></div>';
@@ -2549,17 +2581,10 @@ body.navhide .tabbar{box-shadow:none}
     if(t.to)b+=kv('Đến tài khoản',esc(acc(t.to).name));
     b+=kv('Ngày',dmyFull(t.date));
     if(t.note)b+=kv('Ghi chú',esc(t.note));
-    var editable=!t.trip&&['chi','thu','chuyen','ung','giu'].indexOf(t.type)>=0;
+    var editable=!t.trip&&['chi','thu','chuyen','ung','giu','nhan','tra'].indexOf(t.type)>=0;
     if(t.tl){b+=kv('Chuyến đi',esc(t.tripName));b+='<div class="actions"><button class="btn solid" data-act="txOpenTrip" data-a="'+t.tripId+'" type="button">Mở chuyến đi</button></div><p class="note">Dòng này sinh ra từ chuyến đi nên không sửa hay xóa riêng ở đây. Sửa hoặc xóa khoản chi trong chuyến, số dư tài khoản và lịch sử sẽ tự cập nhật.</p>';return sheet('Chi tiết giao dịch',b)}
     b+='<div class="actions">'+(editable?'<button class="btn" data-act="txEdit" data-a="'+id+'" type="button">Sửa</button>':'')+'<button class="btn danger" data-act="txDel" data-a="'+id+'" type="button">Xóa</button></div><p class="note" id="delnote">Xóa giao dịch sẽ hoàn lại số dư tài khoản.</p>';
     sheet('Chi tiết giao dịch',b);
-  }
-  function pplSheet(arg){
-    var p=arg.split('|'),kind=p[0],name=p.slice(1).join('|'),val=(kind==='owed'?owed:held)[name]||0;
-    SH={acc:active()[0].id,extra:arg};
-    var b='<div class="amount t-'+(kind==='owed'?'nhan':'tra')+'" style="margin-top:0"><label for="sh-amt">Số tiền '+(kind==='owed'?'nhận lại':'trả lại')+'</label><div class="field"><input id="sh-amt" class="money" inputmode="numeric" value="'+val.toLocaleString('vi-VN')+'"><span class="cur">₫</span></div><div class="note">Còn lại '+fmtF(val)+'. Sửa số nếu chỉ '+(kind==='owed'?'nhận':'trả')+' một phần.</div></div>';
-    b+='<div class="block"><div class="cap"><span>'+(kind==='owed'?'Nhận vào tài khoản':'Trả từ tài khoản')+'</span></div><div class="accgrid" id="sh-accs">'+accChips(SH.acc,'sacc')+'</div></div><div class="err" id="sh-err" role="alert"></div><button class="save" data-act="pplSave" type="button">'+(kind==='owed'?'Xác nhận nhận lại':'Xác nhận trả lại')+'</button>';
-    sheet((kind==='owed'?'Nhận lại từ ':'Trả lại cho ')+name,b);
   }
   function adjSheet(id){
     var a=acc(id);SH={id:id};
@@ -2631,7 +2656,7 @@ body.navhide .tabbar{box-shadow:none}
     if(ds.acc){readForm();st.acc=ds.acc;st.accManual=true;st.accAuto=false;fixTo();return renderForm()}
     if(ds.to){st.to=ds.to;st.toManual=true;return renderForm()}
     if(ds.sacc){SH.acc=ds.sacc;$('sh-accs').innerHTML=accChips(SH.acc,'sacc');return}
-    if(ds.person){$('person').value=ds.person;st.personManual=true;st.personAuto=false;personNote();return}
+    if(ds.person){$('person').value=ds.person;st.personManual=true;st.personAuto=false;return renderForm()}
     if(ds.add){$('amount').value=(parseMoney($('amount'))+parseInt(ds.add,10)).toLocaleString('vi-VN');return}
     if(ds.hf){H.type=ds.hf;return histList()}
     if(ds.cf&&!el.hasAttribute('data-cfok'))return cfAsk(el);
@@ -2655,7 +2680,7 @@ body.navhide .tabbar{box-shadow:none}
     }else if(el.id&&el.id.indexOf('sp-')===0)spLive();
     if(el.id&&el.id.indexOf('tp-')===0)tpLive();
     if(el.id&&el.id.indexOf('tf-')===0)tfLive();
-    if(el.id==='person'){st.personManual=true;st.personAuto=false;personNote()}
+    if(el.id==='person'){st.personManual=true;st.personAuto=false;updateAmtUI()}
     if(el.id==='hq'){H.q=el.value;histList()}
     if(el.id==='hfrom'||el.id==='hto'){if(el.value){if(el.id==='hfrom')H.from=el.value;else H.to=el.value;histList()}}
   });
@@ -2801,7 +2826,9 @@ body.navhide .tabbar{box-shadow:none}
         if(AF.id){var x=acc(AF.id);x.name=nm;x.group=AF.group;x.logo=AF.logo==='auto'?undefined:AF.logo;x.logoImg=AF.logo==='img'?AF.logoImg:undefined;toast('Đã cập nhật.');back();return}
         var ob=parseMoney($('af-open'));if(AF.group==='credit'&&ob>0)ob=-ob;
         var id='a'+Date.now(),na={id:id,name:nm,group:AF.group,bal:ob,active:true};if(AF.logo!=='auto')na.logo=AF.logo;if(AF.logo==='img')na.logoImg=AF.logoImg;accounts.push(na);toast('Đã tạo tài khoản.');back();return}
-      case 'pplOpen':return pplSheet(a);
+      case 'pplOpen':{var pk=a.split('|'),pnm=pk.slice(1).join('|');closeSheet();newAddState({type:pk[0]==='owed'?'nhan':'tra',person:pnm,personManual:true});tab='add';stack=[{v:'add'}];return draw('tab')}
+      case 'pdir':{if(st.type===a)return;readForm();st.type=a;st.personAuto=false;if(!st.person){var dq=dirPeople(a);if(dq.length===1){st.person=dq[0][0];$('person').value=st.person;st.personAuto=true}}renderForm();applyAuto();return}
+      case 'payAll':{setAmount(+a);updateAmtUI();applyAuto();if(document.body.classList.contains('kbup'))$('amount').focus();return}
       case 'pAgain':{var pn=curPerson();newAddState({type:a,person:pn,personManual:true});tab='add';stack=[{v:'add'}];return draw('tab')}
       case 'pHistOpen':{var hn0=curPerson();H=newH(null);H.person=hn0;H.type=a;H.p='all';return go('hist')}
       case 'pRename':sheet('Đổi tên',pSheetName());return;
@@ -2820,12 +2847,6 @@ body.navhide .tabbar{box-shadow:none}
       case 'pHide':{var hn=curPerson();if(pStat(hn).bal)return;P[hn].hidden=!P[hn].hidden;toast(P[hn].hidden?'Đã ẩn «'+hn+'».':'Đã dùng lại «'+hn+'».');return draw()}
       case 'pDel':{var dn=curPerson();sheet('Xóa người này?','<div class="warnbox">Xóa hẳn «'+esc(dn)+'» khỏi danh sách. Người này chưa có giao dịch nào nên không ảnh hưởng số liệu.</div><div class="actions"><button class="btn" data-act="closeSheet" type="button">Không xóa</button><button class="btn danger" data-act="pDelOk" type="button">Xóa</button></div>');return}
       case 'pDelOk':{var dn2=curPerson();if(pStat(dn2).n)return closeSheet();delete P[dn2];delete owed[dn2];delete held[dn2];closeSheet();toast('Đã xóa «'+dn2+'».');return back()}
-      case 'pplSave':{
-        var p=SH.extra.split('|'),kind=p[0],name=p.slice(1).join('|'),val=(kind==='owed'?owed:held)[name]||0,amt=parseMoney($('sh-amt'));
-        if(!amt||amt<=0){$('sh-err').textContent='Nhập số tiền.';return}
-        if(amt>val){$('sh-err').textContent='Số tiền lớn hơn số còn lại.';return}
-        addTx({type:kind==='owed'?'nhan':'tra',amount:amt,person:name,acc:SH.acc,date:TODAY_ISO,note:amt<val?'Một phần':''});
-        closeSheet();toast(amt<val?'Đã ghi một phần. Còn '+fmtF(val-amt)+'.':'Đã thanh toán đủ.');return draw();}
       case 'txEdit':{
         var t=findTx(+a);closeSheet();
         newAddState({type:t.type,cat:t.cat||null,acc:t.acc,to:t.to||null,editId:t.id,person:t.person||'',memo:t.note||'',date:t.date,amount:t.amount});
@@ -3478,6 +3499,32 @@ body.navhide .tabbar{box-shadow:none}
   function kbShow(on){var b=$('kbBar');if(!b)return;b.hidden=!on;document.body.classList.toggle('kbup',!!on);if(on)kbPlace()}
   document.addEventListener('focusin',function(e){if(e.target&&e.target.id==='amount')kbShow(true)});
   document.addEventListener('focusout',function(e){if(e.target&&e.target.id==='amount')setTimeout(function(){if(document.activeElement!==$('amount'))kbShow(false)},140)});
+  /* v1.0.17: chạm vào ô số tiền đang có số thì chọn hết, gõ số mới là thay luôn.
+     Chỉ khi người dùng tự chạm vào ô (không áp dụng khi app tự focus lại, ví dụ sau phím 000). */
+  var SELEL=null,SELT=0;
+  function isAmtIn(el){return !!el&&el.tagName==='INPUT'&&(el.classList.contains('money')||el.inputMode==='numeric'||el.inputMode==='decimal')}
+  function selAll(el){if(document.activeElement===el&&el._fresh&&el.value===el._fv)try{el.setSelectionRange(0,el.value.length)}catch(_){}}
+  document.addEventListener('pointerdown',function(e){var el=e.target;if(isAmtIn(el)&&document.activeElement!==el){SELEL=el;SELT=Date.now()}},true);
+  document.addEventListener('focusin',function(e){
+    var el=e.target;if(!isAmtIn(el))return;el._fresh=false;
+    if(el!==SELEL||Date.now()-SELT>1500||!el.value)return;
+    SELEL=null;el._fresh=true;el._fv=el.value;el._selClick=true;
+    requestAnimationFrame(function(){selAll(el)});setTimeout(function(){selAll(el)},80);
+  });
+  document.addEventListener('click',function(e){var el=e.target;if(isAmtIn(el)&&el._selClick){el._selClick=false;selAll(el)}},true);
+  document.addEventListener('focusout',function(e){var el=e.target;if(isAmtIn(el)){el._fresh=false;el._selClick=false}});
+  document.addEventListener('beforeinput',function(e){
+    var el=e.target;if(!isAmtIn(el)||!el._fresh)return;
+    el._fresh=false;el._selClick=false;
+    if(el.value!==el._fv)return;
+    if(el.selectionStart===0&&el.selectionEnd===el.value.length)return;
+    var it=e.inputType||'';
+    if(it==='insertText'&&e.data){e.preventDefault();el.value=e.data}
+    else if(it.indexOf('delete')===0){e.preventDefault();el.value=''}
+    else return;
+    try{el.setSelectionRange(el.value.length,el.value.length)}catch(_){}
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+  },true);
   document.addEventListener('mousedown',function(e){if(e.target.closest&&e.target.closest('.kbbar,.zchip'))e.preventDefault()});
   if(VV){VV.addEventListener('resize',kbPlace);VV.addEventListener('scroll',kbPlace)}
   SCR.addEventListener('scroll',kbPlace,{passive:true});
@@ -3522,11 +3569,11 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.16',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.17',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
-    S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};BUDY=d.BUDY||{};if(!d.BUDY&&d.S&&d.S.demo){BUD=JSON.parse(JSON.stringify(BUD_DEF));BUDY=JSON.parse(JSON.stringify(BUDY_DEF))}owed=d.owed||{};held=d.held||{};P=d.P||{};
+    S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};BUDY=d.BUDY||{};if(!d.BUDY&&d.S&&d.S.demo){BUD=JSON.parse(JSON.stringify(BUD_DEF));BUDY=JSON.parse(JSON.stringify(BUDY_DEF))}owed=d.owed||{};held=d.held||{};normAllP();P=d.P||{};
     txs=d.txs||[];nextId=d.nextId||1;TRIPS=d.TRIPS||[];TXN=d.TXN||1;FW=d.FW||{};RATES=d.RATES||{};LAST_TRIP=d.LAST_TRIP||null;
     var mx=0;txs.forEach(function(t){if(t.id>mx)mx=t.id});if(nextId<=mx)nextId=mx+1;sortTx();
   }
