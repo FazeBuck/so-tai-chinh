@@ -634,6 +634,7 @@ body.navhide .tabbar{box-shadow:none}
 (function(){
   /* ================= DỮ LIỆU MẪU (v7: bàn phím số trong app, số dư theo kỳ, gộp tài khoản ngừng sử dụng) ================= */
   var S={hide:false,faceid:false,drive:false,auto:'weekly',last:'',demo:true,lastFile:''};
+  var PROF={cur:'main',list:[{id:'main',name:'Hào'}]};
   var CATS={
     chi:[
       {g:'Ăn uống',i:['Ăn tiệm','Cafe','Đi chợ/siêu thị','Nhậu']},
@@ -1009,7 +1010,7 @@ body.navhide .tabbar{box-shadow:none}
   function vHome(){
     var mt=monthTotals(THIS_MONTH),h='',d=new Date(),mo=d.getMonth()+1;
     var dim=new Date(d.getFullYear(),mo,0).getDate(),left=dim-d.getDate();
-    h+='<div class="hhead"><div class="avatar" aria-hidden="true">H</div><div class="ht"><small>'+WD[d.getDay()]+', '+d.getDate()+' tháng '+mo+'</small><b>Chào Hào</b></div>'+(S.demo?'<span class="badge">Dữ liệu mẫu</span>':'')+bkIcon()+'<button type="button" class="iconbtn" data-go="hist" aria-label="Tìm giao dịch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></div>';
+    h+='<div class="hhead"><div class="avatar" aria-hidden="true">'+esc(profName().charAt(0).toUpperCase())+'</div><div class="ht"><small>'+WD[d.getDay()]+', '+d.getDate()+' tháng '+mo+'</small><b>'+(PROF.cur==='main'?'Chào '+esc(profName()):esc(profName()))+'</b></div>'+(S.demo?'<span class="badge">Dữ liệu mẫu</span>':'')+bkIcon()+'<button type="button" class="iconbtn" data-go="hist" aria-label="Tìm giao dịch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></div>';
     h+=heroHtml(true,{noSplit:true,extra:'<div class="qacts">'+QA.map(function(q){return '<button type="button" data-act="quickAdd" data-a="'+q[0]+'"><svg viewBox="0 0 24 24" aria-hidden="true">'+q[2]+'</svg>'+q[1]+'</button>'}).join('')+'</div>'});
     var on=namesOf(owed),tripsOw=TRIPS.filter(function(t){return t.status==='open'&&tripOwedOne(t)>0}).length,hn=namesOf(held);
     var owNote=(on.length?on.slice(0,2).join(', ')+(on.length>2?' +'+(on.length-2):''):'')+(tripsOw?(on.length?' · ':'')+tripsOw+' chuyến đi':'');
@@ -1522,6 +1523,7 @@ body.navhide .tabbar{box-shadow:none}
   function readForm(){st.amount=spForeign()?fgnNum($('amount').value):parseMoney($('amount'));st.person=$('person').value.trim();st.memo=$('memo').value.trim();st.date=$('date').value||todayISO()}
   function saveTx(){
     readForm();var t=st.type,err='';
+    if(!st.acc||(!acc(st.acc)&&!isW(st.acc))){$('err').textContent='Chưa có tài khoản. Vào tab Tài khoản, bấm + Tài khoản để thêm trước.';return}
     if(t==='chi'&&st.kind!=='none'&&!st.editId)return saveSplit();
     if(!st.amount)err='Nhập số tiền.';
     else if((t==='chi'||t==='thu')&&!st.cat)err='Chọn hạng mục.';
@@ -2070,6 +2072,7 @@ body.navhide .tabbar{box-shadow:none}
   function switchRow(label,sub,act,on){return '<div class="row"><div class="name"><div>'+label+'</div>'+(sub?'<small>'+sub+'</small>':'')+'</div><button type="button" class="switch" role="switch" data-act="'+act+'" aria-checked="'+on+'" aria-label="'+label+'"></button></div>'}
   function vMore(){
     var h=head('Khác',S.demo?'<span class="badge">Dữ liệu mẫu</span>':'',true);
+    h+=profSection();
     h+='<div class="list"><button type="button" class="row rowbtn" data-go="trips"><div class="name"><div>Chuyến đi</div><small>Chia tiền nhóm, nhiều loại tiền, tổng kết</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="cats"><div class="name"><div>Hạng mục</div><small>Thêm, sửa nhóm và hạng mục</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="budget"><div class="name"><div>Hạn mức chi</div><small>Theo tháng và theo năm</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="people"><div class="name"><div>Người ứng hộ, giữ hộ</div><small>Đang theo dõi, đã tất toán, ẩn, gộp</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="backup"><div class="name"><div>Sao lưu và khôi phục</div><small>Google Drive · '+(gsOn()?'Tự động':'Chưa thiết lập')+'</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="hist"><div class="name"><div>Lịch sử giao dịch</div><small>Xem, tìm, sửa, xóa</small></div><span class="chev">›</span></button></div>';
     h+='<div class="sec"><h2>Giao diện</h2></div>'+themePicker();
     h+='<div class="sec"><h2>Cài đặt</h2></div><div class="list">'+switchRow('Ẩn số tiền','Che các con số trên màn hình','hide',S.hide)+switchRow('Khóa bằng Face ID','Hỏi Face ID khi mở app','faceid',S.faceid)+'</div>';
@@ -2140,10 +2143,11 @@ body.navhide .tabbar{box-shadow:none}
     return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
   }
   function gUpload(){return gUpload1().catch(function(e){if(!e||!e.retry||!navigator.onLine)throw e;return new Promise(function(r){setTimeout(r,5000)}).then(gUpload1)})}
-  function gUpload1(){
+  function gUpload1(){return gsNeedV2().then(gUpload2)}
+  function gUpload2(){
     var data=JSON.stringify(snapshot(true));
     return gzipText(data).then(function(gz){
-      var body={op:'backup',day:todayISO()};
+      var body={op:'backup',day:todayISO(),profile:profSlug()};
       if(gz)body.gz=b64(gz);else body.data=data;
       var kb=Math.round((gz?gz.length*4/3:data.length)/1024);
       return gsCall(body).then(function(r){S.bkLastKB=kb;return r});
@@ -2199,10 +2203,10 @@ body.navhide .tabbar{box-shadow:none}
   function gRestoreList(){
     if(!gsOn())return gsSetup();
     if(GBUSY)return toast('Đang sao lưu, đợi chút...');GBUSY=true;toast('Đang tải danh sách bản sao lưu...');
-    gsCall({op:'list'}).then(function(r){
-      GBUSY=false;var files=r.files||[];
+    gsCall({op:'list',profile:profSlug()}).then(function(r){
+      GBUSY=false;var files=(r.files||[]).filter(profFileOk);
       if(!files.length)return sheet('Khôi phục từ Google Drive','<div class="empty">Chưa có bản sao lưu nào trên Drive.</div>');
-      sheet('Chọn bản sao lưu','<div class="list">'+files.slice(0,GKEEP).map(function(f){var d=new Date(f.t);return '<button type="button" class="row rowbtn" data-act="gPick" data-a="'+esc(f.id)+'"><div class="name"><div>'+esc(f.name.replace('so-tai-chinh_','').replace(/\.json(\.gz)?$/,''))+'</div><small>Cập nhật '+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+(f.size?' · '+Math.round(f.size/1024)+' KB':'')+'</small></div><span class="chev">›</span></button>'}).join('')+'</div>');
+      sheet('Chọn bản sao lưu','<div class="list">'+files.slice(0,GKEEP).map(function(f){var d=new Date(f.t);return '<button type="button" class="row rowbtn" data-act="gPick" data-a="'+esc(f.id)+'"><div class="name"><div>'+esc(f.name.replace('so-tai-chinh_'+(profSlug()?profSlug()+'_':''),'').replace(/\.json(\.gz)?$/,''))+'</div><small>Cập nhật '+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+(f.size?' · '+Math.round(f.size/1024)+' KB':'')+'</small></div><span class="chev">›</span></button>'}).join('')+'</div>');
     },function(e){GBUSY=false;toast(e.message)});
   }
   function gPick(id){
@@ -2215,7 +2219,8 @@ body.navhide .tabbar{box-shadow:none}
   }
   function confirmRestore(d,label){
     PEND=d;var st0=d.state,n=(st0.txs||[]).length,na=(st0.accounts||[]).length;
-    sheet('Khôi phục dữ liệu','<div class="warnbox">'+esc(label)+': '+na+' tài khoản, '+n+' giao dịch'+(d.savedAt?', tạo lúc '+esc(d.savedAt):'')+'. Toàn bộ dữ liệu hiện tại trên máy sẽ bị thay thế.</div><div class="actions"><button class="btn" data-act="closeSheet" type="button">Không khôi phục</button><button class="btn danger" data-act="bkRestoreOk" type="button">Khôi phục</button></div>');
+    var srcId=(d.profile&&d.profile.id)||'main',pw=srcId!==PROF.cur?'<div class="warnbox">Bản sao lưu này thuộc profile «'+esc((d.profile&&d.profile.name)||'chính')+'», còn bạn đang ở profile «'+esc(profName())+'». Khôi phục sẽ thay dữ liệu của profile đang dùng.</div>':'';
+    sheet('Khôi phục dữ liệu',pw+'<div class="warnbox">'+esc(label)+': '+na+' tài khoản, '+n+' giao dịch'+(d.savedAt?', tạo lúc '+esc(d.savedAt):'')+'. Toàn bộ dữ liệu hiện tại trên máy sẽ bị thay thế.</div><div class="actions"><button class="btn" data-act="closeSheet" type="button">Không khôi phục</button><button class="btn danger" data-act="bkRestoreOk" type="button">Khôi phục</button></div>');
   }
   /* ================= XUẤT EXCEL (.xlsx tự tạo, không cần thư viện) ================= */
   var CRCT=null;
@@ -2752,6 +2757,14 @@ body.navhide .tabbar{box-shadow:none}
         cd.forEach(function(e){if(on0)delete TF.sel[e.id];else TF.sel[e.id]=true});return draw()}
       case 'tfAcc':{tfRead();TF.acc=a;TF.sel={};TF.tot='';TF.aft='';TF.bef=undefined;return draw()}
       case 'tfMode':{tfRead();TF.mode=a;return draw()}
+      case 'profOpen':return profOpen(a);
+      case 'profGo':closeSheet();return profSwitch(a);
+      case 'profNewSheet':return profNewSheet();
+      case 'profNew':return profCreate();
+      case 'profRenameAsk':return profRenameAsk(a);
+      case 'profRename':return profRename(a);
+      case 'profDelAsk':return profDelAsk(a);
+      case 'profDelDo':return profDelDo(a);
       case 'stmOpen':return stmSheet(+a);
       case 'stmEdit':{var te0=curTrip(),s0=stmById(te0,+a);if(!s0)return;var ac0=acc(s0.acc);if(!ac0)return;closeSheet();
         var cr0=accIsCredit(ac0),bef0=(s0.balBefore!=null)?s0.balBefore:(cr0?dispBal(ac0)-s0.total:dispBal(ac0)+s0.total);
@@ -3526,7 +3539,8 @@ body.navhide .tabbar{box-shadow:none}
         h+='<div class="card" style="margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><b>'+esc(a.name)+'</b>'+(pi.length?'<span class="badge">'+pi.length+' khoản chờ chốt</span>':'<span class="badge">Đã chốt hết</span>')+'</div>';
         if(pi.length)h+=bro('Tạm tính ('+pi.length+' khoản)',pc+' · ≈ '+fmtF(tam));
         if(ci.length)h+=bro('Đã chốt ('+ci.length+' khoản)',fmtF(fin));
-        h+=bro(dispLbl(a)+' trong app','<b>'+fmtF(dispBal(a))+'</b>')+'</div>';
+        if(pi.length)h+=bro('Tổng dùng trong chuyến (gồm tạm tính)','<b>'+fmtF(fin+tam)+'</b>');
+        h+='</div>';
       });
     }
     var sl=(t.stm||[]).slice().sort(function(x,y){return x.date<y.date?1:x.date>y.date?-1:y.id-x.id});
@@ -3719,19 +3733,117 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.19',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.20',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
-  function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
+  function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,profile:{id:PROF.cur,name:profName()},savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
     S=d.S||S;CATS=d.CATS||CATS;FAV=d.FAV||FAV;accounts=d.accounts||[];BUD=d.BUD||{};BUDY=d.BUDY||{};if(!d.BUDY&&d.S&&d.S.demo){BUD=JSON.parse(JSON.stringify(BUD_DEF));BUDY=JSON.parse(JSON.stringify(BUDY_DEF))}owed=d.owed||{};held=d.held||{};normAllP();P=d.P||{};
     txs=d.txs||[];nextId=d.nextId||1;TRIPS=d.TRIPS||[];TXN=d.TXN||1;FW=d.FW||{};RATES=d.RATES||{};LAST_TRIP=d.LAST_TRIP||null;
     var mx=0;txs.forEach(function(t){if(t.id>mx)mx=t.id});if(nextId<=mx)nextId=mx+1;sortTx();
   }
   function idb(){return new Promise(function(res,rej){var r=indexedDB.open(DBN,1);r.onupgradeneeded=function(){r.result.createObjectStore('kv')};r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}})}
-  function idbGet(){return idb().then(function(db){return new Promise(function(res,rej){var q=db.transaction('kv').objectStore('kv').get(KEY);q.onsuccess=function(){res(q.result)};q.onerror=function(){rej(q.error)}})})}
-  function idbPut(v){return idb().then(function(db){return new Promise(function(res,rej){var tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(v,KEY);tx.oncomplete=function(){res()};tx.onerror=function(){rej(tx.error)}})})}
+  function idbGetK(k){return idb().then(function(db){return new Promise(function(res,rej){var q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=function(){res(q.result)};q.onerror=function(){rej(q.error)}})})}
+  function idbPutK(k,v){return idb().then(function(db){return new Promise(function(res,rej){var tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(v,k);tx.oncomplete=function(){res()};tx.onerror=function(){rej(tx.error)}})})}
+  function idbDelK(k){return idb().then(function(db){return new Promise(function(res,rej){var tx=db.transaction('kv','readwrite');tx.objectStore('kv').delete(k);tx.oncomplete=function(){res()};tx.onerror=function(){rej(tx.error)}})})}
+  function idbGet(){return idbGetK(KEY)}
+  function idbPut(v){return idbPutK(KEY,v)}
+  /* ================= PROFILE (1.0.20): nhiều bộ dữ liệu tách riêng trên cùng một app ================= */
+  function profById(id){for(var i=0;i<PROF.list.length;i++)if(PROF.list[i].id===id)return PROF.list[i]}
+  function profName(){var p=profById(PROF.cur);return p?p.name:'Hào'}
+  function profSlug(){return PROF.cur==='main'?'':PROF.cur}
+  function profKey(id){return id==='main'?'state':'p:'+id}
+  function profFileOk(f){var n=(f&&f.name)||'',s=profSlug();return s?n.indexOf('so-tai-chinh_'+s+'_')===0:/^so-tai-chinh_\d{4}-\d{2}-\d{2}/.test(n)}
+  /* link và mã sao lưu dùng chung cho mọi profile: lưu ở danh sách profile */
+  function profSyncGs(){var u=S.gsUrl||'',k=S.gsKey||'';if(!PROF.gs||PROF.gs.url!==u||PROF.gs.key!==k){PROF.gs={url:u,key:k};idbPutK('profiles',PROF)}}
+  function profSlugify(name){
+    var s=String(name).toLowerCase().replace(/đ/g,'d');
+    try{s=s.normalize('NFD').replace(/[̀-ͯ]/g,'')}catch(e){}
+    s=s.replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,18)||'p';
+    if(s==='main')s='main-2';
+    var base=s,n=2;while(profById(s)){s=base+'-'+n;n++}
+    return s;
+  }
+  function profNewState(src){
+    var s0={hide:false,faceid:false,drive:false,auto:'weekly'},cp=function(x,d){return x?JSON.parse(JSON.stringify(x)):d};
+    if(src&&src.S){s0={};for(var k in src.S)s0[k]=src.S[k]}
+    ['last','lastFile','bkSig','bkErr','bkLastKB','lastDriveAt','driveFolder'].forEach(function(k){delete s0[k]});
+    s0.demo=false;s0.last='';s0.lastFile='';
+    return {S:s0,CATS:cp(src&&src.CATS,CATS),FAV:cp(src&&src.FAV,FAV),accounts:[],BUD:cp(src&&src.BUD,{}),BUDY:cp(src&&src.BUDY,{}),owed:{},held:{},P:{},txs:[],nextId:1,TRIPS:[],TXN:1,FW:{},RATES:{},LAST_TRIP:null};
+  }
+  var GS_V=0;
+  /* Script cũ không biết profile: chặn sao lưu profile phụ để không ghi đè file của profile chính */
+  function gsNeedV2(){
+    if(PROF.cur==='main'||GS_V>=2)return Promise.resolve();
+    return gsCall({op:'ping'}).then(function(r){
+      GS_V=(r&&r.ver)||1;
+      if(GS_V<2)throw new Error('Script sao lưu chưa được cập nhật để hỗ trợ profile, nên chưa sao lưu được profile này. Cập nhật script rồi thử lại.');
+    });
+  }
+  function profSection(){
+    var h='<div class="sec"><h2>Profile</h2></div><div class="list">';
+    PROF.list.forEach(function(p){
+      var on=p.id===PROF.cur;
+      h+='<button type="button" class="row rowbtn" data-act="profOpen" data-a="'+esc(p.id)+'"><div class="ico">'+esc(p.name.charAt(0).toUpperCase())+'</div><div class="name"><div>'+esc(p.name)+'</div><small>'+(p.id==='main'?'Profile chính':'Dữ liệu riêng')+(on?'':' · bấm để chuyển hoặc đổi tên')+'</small></div>'+(on?'<span class="badge">Đang dùng</span>':'<span class="chev">›</span>')+'</button>';
+    });
+    h+='<button type="button" class="row rowbtn" data-act="profNewSheet"><div class="name"><div>+ Tạo profile mới</div><small>Dữ liệu tách riêng, ví dụ theo dõi giúp người khác</small></div><span class="chev">›</span></button></div>';
+    return h;
+  }
+  function profOpen(id){
+    var p=profById(id);if(!p)return;
+    var b='';
+    if(id!==PROF.cur)b+='<button class="save" data-act="profGo" data-a="'+esc(id)+'" type="button">Chuyển sang profile này</button>';
+    b+='<button class="save ghost" data-act="profRenameAsk" data-a="'+esc(id)+'" type="button">Đổi tên</button>';
+    if(id!=='main'&&id!==PROF.cur)b+='<button class="save ghost" data-act="profDelAsk" data-a="'+esc(id)+'" type="button">Xóa profile</button>';
+    if(id===PROF.cur)b+='<p class="note">Đang dùng profile này. Muốn xóa, hãy chuyển sang profile khác trước.</p>';
+    sheet(esc(p.name),b);
+  }
+  function profNewSheet(){
+    sheet('Tạo profile mới','<div class="block" style="margin-top:0"><div class="cap"><span>Tên profile</span></div><input class="text" id="pf-name" maxlength="20" placeholder="Ví dụ: Má" autocomplete="off"></div><div class="err" id="pf-err" role="alert"></div><button class="save" id="pf-save" data-act="profNew" type="button">Tạo và chuyển sang</button>'
+      +'<p class="note">Profile mới bắt đầu trống: chưa có tài khoản, giao dịch, người hay chuyến đi. Hạng mục, hạn mức được sao chép từ profile chính, sau đó chỉnh riêng. Link và mã sao lưu dùng chung, mỗi profile một file trên Drive.</p>');
+  }
+  function profCreate(){
+    var el=$('pf-name'),er=$('pf-err');if(!el)return;
+    var name=(el.value||'').trim().slice(0,20);
+    if(!name){er.textContent='Nhập tên profile.';return}
+    if(PROF.list.some(function(p){return p.name.toLowerCase()===name.toLowerCase()})){er.textContent='Đã có profile tên này.';return}
+    var id=profSlugify(name),b=$('pf-save');if(b)b.disabled=true;
+    var getSrc=PROF.cur==='main'?Promise.resolve(snapshot().state):idbGetK('state').then(function(v){return v?JSON.parse(v):null});
+    getSrc.then(function(src){return idbPutK(profKey(id),JSON.stringify(profNewState(src)))})
+      .then(function(){PROF.list.push({id:id,name:name});return idbPutK('profiles',PROF)})
+      .then(function(){closeSheet();profSwitch(id)},function(){if(b)b.disabled=false;er.textContent='Không tạo được profile trên máy này.'});
+  }
+  /* Lưu và gửi nốt bản sao lưu của profile đang dùng, rồi nạp lại app với profile mới */
+  function profSwitch(id){
+    if(id===PROF.cur||!profById(id))return;
+    toast('Đang chuyển sang profile '+profById(id).name+'...');
+    var pre=Promise.resolve();
+    if(gsOn()&&!GBUSY&&bkDirty()){
+      GBUSY=true;
+      pre=Promise.race([gUpload().then(function(){S.bkSig=dataSig();S.bkErr='';S.last=dmyFull(todayISO())+' '+nowTime()},function(){}),new Promise(function(r){setTimeout(r,8000)})]).then(function(){GBUSY=false});
+    }
+    pre.then(function(){return idbPut(JSON.stringify(snapshot().state))}).then(function(){PROF.cur=id;return idbPutK('profiles',PROF)}).then(function(){location.reload()},function(){toast('Không chuyển được profile.')});
+  }
+  function profRenameAsk(id){
+    var p=profById(id);if(!p)return;
+    sheet('Đổi tên profile','<div class="block" style="margin-top:0"><input class="text" id="pf-name" maxlength="20" value="'+esc(p.name)+'" autocomplete="off"></div><div class="err" id="pf-err" role="alert"></div><button class="save" data-act="profRename" data-a="'+esc(id)+'" type="button">Lưu</button><p class="note">Đổi tên không đổi tên file sao lưu đã có trên Drive.</p>');
+  }
+  function profRename(id){
+    var p=profById(id),el=$('pf-name'),er=$('pf-err');if(!p||!el)return;
+    var name=(el.value||'').trim().slice(0,20);
+    if(!name){er.textContent='Nhập tên profile.';return}
+    if(PROF.list.some(function(x){return x.id!==id&&x.name.toLowerCase()===name.toLowerCase()})){er.textContent='Đã có profile tên này.';return}
+    p.name=name;idbPutK('profiles',PROF);closeSheet();draw();toast('Đã đổi tên profile.');
+  }
+  function profDelAsk(id){
+    var p=profById(id);if(!p||id==='main'||id===PROF.cur)return;
+    sheet('Xóa profile '+esc(p.name)+'?','<div class="warnbox">Toàn bộ dữ liệu của profile này trên máy sẽ bị xóa. Các bản sao lưu đã gửi lên Google Drive vẫn còn.</div><div class="actions"><button class="btn" data-act="closeSheet" type="button">Không xóa</button><button class="btn danger" data-act="profDelDo" data-a="'+esc(id)+'" type="button">Xóa</button></div>');
+  }
+  function profDelDo(id){
+    var p=profById(id);if(!p||id==='main'||id===PROF.cur)return;
+    idbDelK(profKey(id)).then(function(){PROF.list=PROF.list.filter(function(x){return x.id!==id});return idbPutK('profiles',PROF)}).then(function(){closeSheet();draw();toast('Đã xóa profile '+p.name+'.')},function(){toast('Không xóa được profile.')});
+  }
   var saveT=null,SAVE_OK=true;
-  function persist(now){clearTimeout(saveT);var f=function(){idbPut(JSON.stringify(snapshot().state)).then(function(){SAVE_OK=true},function(){if(SAVE_OK)toast('Không lưu được dữ liệu trên máy. Hãy sao lưu ra file.');SAVE_OK=false})};if(now)f();else saveT=setTimeout(f,400)}
+  function persist(now){clearTimeout(saveT);var f=function(){profSyncGs();idbPut(JSON.stringify(snapshot().state)).then(function(){SAVE_OK=true},function(){if(SAVE_OK)toast('Không lưu được dữ liệu trên máy. Hãy sao lưu ra file.');SAVE_OK=false})};if(now)f();else saveT=setTimeout(f,400)}
   /* lưu sau mỗi thao tác làm đổi dữ liệu */
   var _draw=draw;draw=function(a,y){_draw(a,y);persist();bkSchedule()};
   var _toast=toast;toast=function(m){_toast(m);persist();bkSchedule()};
@@ -3748,8 +3860,9 @@ body.navhide .tabbar{box-shadow:none}
       lt=still?n:0},{passive:false});
     document.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false})})();
   function start(){newAddState();setTabH();draw();setTabH();setTimeout(function(){try{gBackup(false)}catch(e){}},3000)}
-  (window.indexedDB?idbGet():Promise.reject()).then(function(v){
-    if(v){restore(JSON.parse(v))}else{seed();seedTrips();S.demo=true}
+  (window.indexedDB?idbGetK('profiles').then(function(r){if(r&&r.list&&r.list.length)PROF=r;if(!profById(PROF.cur))PROF.cur='main';KEY=profKey(PROF.cur);return idbGet()}):Promise.reject()).then(function(v){
+    if(v){restore(JSON.parse(v))}else if(PROF.cur!=='main'){restore(profNewState(null))}else{seed();seedTrips();S.demo=true}
+    if(PROF.gs){S.gsUrl=PROF.gs.url||'';S.gsKey=PROF.gs.key||''}
     start();
   },function(){seed();seedTrips();start()});
   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});
