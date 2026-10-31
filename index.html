@@ -3733,7 +3733,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.20',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.21',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,profile:{id:PROF.cur,name:profName()},savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
@@ -3780,7 +3780,7 @@ body.navhide .tabbar{box-shadow:none}
     });
   }
   function profSection(){
-    var h='<div class="sec"><h2>Profile</h2></div><div class="list">';
+    var h='<div class="sec"><h2>Profile</h2></div><div class="list" style="margin-bottom:16px">';
     PROF.list.forEach(function(p){
       var on=p.id===PROF.cur;
       h+='<button type="button" class="row rowbtn" data-act="profOpen" data-a="'+esc(p.id)+'"><div class="ico">'+esc(p.name.charAt(0).toUpperCase())+'</div><div class="name"><div>'+esc(p.name)+'</div><small>'+(p.id==='main'?'Profile chính':'Dữ liệu riêng')+(on?'':' · bấm để chuyển hoặc đổi tên')+'</small></div>'+(on?'<span class="badge">Đang dùng</span>':'<span class="chev">›</span>')+'</button>';
