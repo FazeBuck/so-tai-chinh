@@ -1549,10 +1549,11 @@ body.navhide .tabbar{box-shadow:none}
   function spPeople(){return st.kind==='trip'?trip(st.tripId).people:st.sp.people}
   function spInit(){
     var sp=st.sp;sp.cur='VND';sp.payer=ME;sp.mode='eq';sp.val={};sp.touched={};sp.tam='';sp.tcat=sp.tcat||'Ăn uống';
-    if(st.kind==='trip'){var t=trip(st.tripId);sp.people=t.people.slice();sp.who=t.people.slice()}
+    if(st.kind==='trip'){var t=trip(st.tripId);sp.people=t.people.slice();sp.who=t.people.slice();sp.cur=tDefCur(t)}
     else if(st.kind==='free'){sp.people=[ME].concat(personSuggest().filter(function(x){return x!==ME}).slice(0,5));sp.who=[ME]}
     else{sp.people=[];sp.who=[]}
   }
+  function tDefCur(t){for(var i=t.exp.length-1;i>=0;i--){var c=t.exp[i].cur;if(c!=='VND'&&t.ccy.indexOf(c)>=0)return c}return t.ccy[0]||'VND'}
   var LAST_TRIP=null;
   function tripAutoPick(){
     if(!LAST_TRIP||Date.now()-LAST_TRIP.ts>12*36e5)return null;
@@ -1684,13 +1685,13 @@ body.navhide .tabbar{box-shadow:none}
   function tripCommit(t,e){
     var a=e.amt,o={id:e.editId||TXN++,title:e.title,cat:e.cat,cur:e.cur,amt:a,date:e.date||TODAY_ISO,payer:e.payer,who:e.who.slice(),mode:e.mode,val:{},memo:''};
     if(e.mode!=='eq')e.who.forEach(function(p){o.val[p]=e.val[p]||0});
-    var idx=-1;
-    if(e.editId){t.exp.forEach(function(x,i){if(x.id===e.editId)idx=i});if(idx>=0){var old=t.exp[idx];effRev(old);if(old.final!=null&&old.amt===a&&old.acc===e.acc)o.final=old.final}}
+    var idx=-1,od0=null;
+    if(e.editId){t.exp.forEach(function(x,i){if(x.id===e.editId)idx=i});if(idx>=0){var old=t.exp[idx];od0=((old.eff||[])[0]||{}).date;effRev(old);if(old.final!=null&&old.amt===a&&old.acc===e.acc&&old.cur===e.cur){o.final=old.final;o.stm=old.stm}}}
     if(e.payer===ME){
       o.acc=e.acc;
       if(isW(o.acc))effAdd(o,o.acc,-a);
       else if(e.cur==='VND')effAdd(o,o.acc,-a);
-      else{o.tam=Math.round(a*(t.rate[e.cur]||0));if(o.final!=null)effAdd(o,o.acc,-o.final);else o.final=null}
+      else{o.tam=Math.round(a*(t.rate[e.cur]||0));if(o.final!=null){effAdd(o,o.acc,-o.final);if(od0&&o.eff.length)o.eff[o.eff.length-1].date=od0}else o.final=null}
     }
     if(idx>=0)t.exp[idx]=o;else t.exp.push(o);
     tlSync(t);
@@ -2648,7 +2649,7 @@ body.navhide .tabbar{box-shadow:none}
     var ds=el.dataset;
     if(ds.tab)return setTab(ds.tab);
     if(el.hasAttribute('data-back'))return back();
-    if(ds.go){var a=ds.a;if(ds.go==='hist'){H=newH(null)}if(ds.go==='trip'){TS={tab:'bal',cur:'VND'};SL={cur:'VND',direct:true}}if(ds.go==='tripFix'){TF={sel:{},vnd:{},fee:''}}if(ds.go==='tripSettle'){SL.cur=TS.cur||'VND'}return go(ds.go,a===''?null:a)}
+    if(ds.go){var a=ds.a;if(ds.go==='hist'){H=newH(null)}if(ds.go==='trip'){TS={tab:'bal',cur:'VND'};SL={cur:'VND',direct:true}}if(ds.go==='tripFix'){TF={sel:{},mode:'tot'}}if(ds.go==='tripSettle'){SL.cur=TS.cur||'VND'}return go(ds.go,a===''?null:a)}
     if(ds.tx)return txSheet(+ds.tx);
     if(ds.type){if(ds.type===st.type)return;var sc0=$('screen'),old0=segSnap(sc0),tb=$('types').querySelectorAll('button'),oi0=-1,ni0=-1;[].forEach.call(tb,function(b,i){if(b.getAttribute('aria-pressed')==='true')oi0=i;if(b===el)ni0=i});readForm();st.type=ds.type;st.cat=null;st.catAuto=st.accAuto=false;st.catManual=st.accManual=st.toManual=st.personManual=false;fixTo();renderForm();applyAuto();if(!reduced()){segAnim(sc0,old0);var d0=ni0>oi0?1:-1,af=false;[].forEach.call(sc0.children,function(k){if(k.id==='types'){af=true;return}if(af&&!k.hidden&&k.id!=='amountBox')slideIn(k,d0)})}return}
     if(ds.cat){st.cat=ds.cat;st.catManual=true;st.catAuto=false;return renderForm()}
@@ -2692,7 +2693,7 @@ body.navhide .tabbar{box-shadow:none}
       case 'zeros':{var fz=spForeign(),z=fz?fgnNum($('amount').value):parseMoney($('amount'));if(!z)return;if(fz){$('amount').value=fmtAmtIn(z*1000,st.sp.cur);st.amount=z*1000}else setAmount(z*1000);updateAmtUI();applyAuto();if(document.body.classList.contains('kbup'))$('amount').focus();return}
       case 'spKind':{readForm();spRead();var wasF=spForeign(),kept=st.amount;
         if(a==='none'||a==='free'){st.kind=a;st.tripId=null}else{st.kind='trip';st.tripId=a}
-        st.tripAuto=false;spInit();if(wasF){var kr=Math.round(kept);$('amount').value=kr?fmtAmtIn(kr,'VND'):'';st.amount=kr}
+        st.tripAuto=false;spInit();if(wasF||st.sp.cur!=='VND'){var nc=st.sp.cur,kr=nc==='VND'?Math.round(kept):tRound(kept,nc);$('amount').value=kr?fmtAmtIn(kr,nc):'';st.amount=kr}
         return renderForm()}
       case 'spCur':{readForm();spRead();var sp0=st.sp;if(sp0.cur===a)return;var kp=st.amount;sp0.cur=a;sp0.tam='';var nv=a==='VND'?Math.round(kp):tRound(kp,a);$('amount').value=nv?fmtAmtIn(nv,a):'';st.amount=nv;if(sp0.mode!=='eq')spSetMode(sp0.mode,true);return renderForm()}
       case 'spTcat':spRead();st.sp.tcat=a;return renderForm();
@@ -2742,7 +2743,22 @@ body.navhide .tabbar{box-shadow:none}
       case 'tsCur':SL.cur=a;return softDraw();
       case 'tsDirect':SL.direct=!SL.direct;return draw();
       case 'tsLine':{var tl=curTrip(),ln=tSuggest(tl,SL.cur,SL.direct)[+a];if(ln)paySheet({from:ln.from,to:ln.to,amt:ln.amt,cur:SL.cur},tl.id);return}
-      case 'tfSel':{tfRead();TF.sel[+a]=(TF.sel[+a]===false);return draw()}
+      case 'tfSel':{tfRead();var ti=curTrip(),ex=expById(ti,+a);if(!ex)return;
+        if(TF.sel[ex.id]===true){delete TF.sel[ex.id]}
+        else{var cs=tfItems(ti)[0];if(cs&&cs.cur!==ex.cur){toast('Mỗi lần chốt chỉ chọn các khoản cùng một ngoại tệ ('+cs.cur+').');return}TF.sel[ex.id]=true}
+        return draw()}
+      case 'tfAll':{tfRead();var ta=curTrip(),lst=tPending(ta).filter(function(e){return e.acc===TF.acc});if(!lst.length)return;
+        var f0=tfItems(ta)[0],bc=f0?f0.cur:lst[0].cur,cd=lst.filter(function(e){return e.cur===bc}),on0=cd.every(function(e){return TF.sel[e.id]===true});
+        cd.forEach(function(e){if(on0)delete TF.sel[e.id];else TF.sel[e.id]=true});return draw()}
+      case 'tfAcc':{tfRead();TF.acc=a;TF.sel={};TF.tot='';TF.aft='';TF.bef=undefined;return draw()}
+      case 'tfMode':{tfRead();TF.mode=a;return draw()}
+      case 'stmOpen':return stmSheet(+a);
+      case 'stmEdit':{var te0=curTrip(),s0=stmById(te0,+a);if(!s0)return;var ac0=acc(s0.acc);if(!ac0)return;closeSheet();
+        var cr0=accIsCredit(ac0),bef0=(s0.balBefore!=null)?s0.balBefore:(cr0?dispBal(ac0)-s0.total:dispBal(ac0)+s0.total);
+        TF={sel:{},edit:s0.id,mode:s0.mode||'tot',acc:s0.acc,tot:numIn(s0.total),bef:numIn(bef0),aft:numIn(cr0?bef0+s0.total:bef0-s0.total)};
+        return go('tripFix',te0.id)}
+      case 'stmCancelAsk':return stmCancelAsk(+a);
+      case 'stmCancelDo':return stmCancelDo(+a);
       case 'tfApply':return tfApply();
       case 'tsExport':return tripPdf();
       case 'pvClose':return pvClose();
@@ -2940,7 +2956,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var TCATS=['Ăn uống','Di chuyển','Lưu trú','Vui chơi','Mua sắm','Khác'];
   var FW={SGD:{bal:600},MYR:{bal:150}};
-  var TS={tab:'bal',cur:'VND'},TE={},TP={},TF={sel:{},vnd:{},fee:''},TN={},SL={cur:'VND',direct:true};
+  var TS={tab:'bal',cur:'VND'},TE={},TP={},TF={sel:{},mode:'tot'},TN={},SL={cur:'VND',direct:true};
 
   function trip(id){for(var i=0;i<TRIPS.length;i++)if(TRIPS[i].id===id)return TRIPS[i]}
   function curTrip(){return trip(cur().a)}
@@ -3081,6 +3097,7 @@ body.navhide .tabbar{box-shadow:none}
   function effRev(o){(o.eff||[]).forEach(function(x){effBal(x.acc,-x.d)});o.eff=[]}
   /* Lịch sử tài khoản cho khoản chi, thanh toán trong chuyến đi: sinh lại từ dữ liệu chuyến mỗi khi có thay đổi */
   function tlSync(t){
+    stmEnsure(t);
     for(var i=txs.length-1;i>=0;i--)if(txs[i].tl&&txs[i].tripId===t.id)txs.splice(i,1);
     function add(o,what,kind){
       (o.eff||[]).forEach(function(x){
@@ -3160,8 +3177,8 @@ body.navhide .tabbar{box-shadow:none}
     var t=curTrip();if(!t)return head('Không tìm thấy')+'<div class="empty">Chuyến đi này không còn.</div>';
     var h=head(esc(t.name),t.status==='open'?'<span style="display:flex;gap:8px"><button class="btn" data-act="tEdit" type="button">Sửa</button><button class="btn solid" data-act="tMenu" type="button">+ Thêm</button></span>':'<span class="badge">Đã tất toán</span>');
     h+='<p class="note" style="margin:0 2px 8px">'+esc(t.dates)+' · '+t.people.map(esc).join(', ')+'</p>';
-    h+='<div class="rtabs" role="tablist"><button type="button" role="tab" data-act="tTab" data-a="bal" aria-selected="'+(TS.tab==='bal')+'">Số dư</button><button type="button" role="tab" data-act="tTab" data-a="exp" aria-selected="'+(TS.tab==='exp')+'">Chi phí ('+(t.exp.length+t.pay.length)+')</button></div>';
-    return h+(TS.tab==='bal'?tBalView(t):tExpView(t));
+    h+='<div class="rtabs" role="tablist"><button type="button" role="tab" data-act="tTab" data-a="bal" aria-selected="'+(TS.tab==='bal')+'">Số dư</button><button type="button" role="tab" data-act="tTab" data-a="exp" aria-selected="'+(TS.tab==='exp')+'">Chi phí ('+(t.exp.length+t.pay.length)+')</button><button type="button" role="tab" data-act="tTab" data-a="stm" aria-selected="'+(TS.tab==='stm')+'">Sao kê'+(tPending(t).length?' ('+tPending(t).length+')':'')+'</button></div>';
+    return h+(TS.tab==='bal'?tBalView(t):TS.tab==='stm'?tStmView(t):tExpView(t));
   }
   function tBalView(t){
     var cc=tCcys(t);if(cc.indexOf(TS.cur)<0)TS.cur='VND';
@@ -3354,63 +3371,195 @@ body.navhide .tabbar{box-shadow:none}
     return h;
   }
 
-  /* ----- Chốt sao kê: VND gốc từng khoản + phí chuyển đổi chung ----- */
-  function tfRead(){TF.vnd=TF.vnd||{};document.querySelectorAll('.tf-v').forEach(function(el){TF.vnd[el.dataset.id]=el.value});var f=$('tf-fee');if(f)TF.fee=f.value}
-  function tfInt(v){return parseInt(String(v==null?'':v).replace(/\D/g,''),10)||0}
-  function tfCalc(t){
-    var items=tPending(t).filter(function(e){return TF.sel[e.id]!==false}),out={items:items,p:{},f:{},alloc:{},P:0,F:0,T:0,tam:0};
-    items.forEach(function(e){
-      var el=$('tf-v-'+e.id),p=el?parseMoney(el):(TF.vnd&&TF.vnd[e.id]!=null?tfInt(TF.vnd[e.id]):(e.tam||0));
-      out.p[e.id]=p;out.P+=p;out.tam+=(e.tam||0);
+  /* ----- Chốt sao kê (1.0.19): chọn thẻ, tick khoản, chốt theo tổng hoặc theo số dư thẻ; không tách phí riêng ----- */
+  function accIsCredit(a){return !!a&&a.group==='credit'}
+  function dispBal(a){return accIsCredit(a)?-a.bal:a.bal}
+  function dispLbl(a){return accIsCredit(a)?'Dư nợ':'Số dư'}
+  function numIn(n){return (n<0?'-':'')+Math.abs(Math.round(n)).toLocaleString('vi-VN')}
+  function pmStr(v){v=String(v==null?'':v);var neg=/^\s*-/.test(v);var n=parseInt(v.replace(/\D/g,''),10)||0;return neg?-n:n}
+  function expById(t,id){for(var i=0;i<t.exp.length;i++)if(t.exp[i].id===id)return t.exp[i]}
+  function stmById(t,id){var r=null;(t.stm||[]).forEach(function(s){if(s.id===id)r=s});return r}
+  function stmEnsure(t){
+    t.stm=t.stm||[];
+    var byId={};t.stm.forEach(function(s){byId[s.id]=s});
+    var lg={};
+    t.exp.forEach(function(e){
+      if(!eConv(e)||(e.stm&&byId[e.stm]))return;
+      var d=((e.eff||[])[0]||{}).date||e.date,k=e.acc+'|'+d+'|'+e.cur,s=lg[k];
+      if(!s){s=lg[k]={id:TXN++,acc:e.acc,date:d,cur:e.cur,mode:'tot',items:[],total:0,balBefore:null,legacy:1};t.stm.push(s);byId[s.id]=s}
+      e.stm=s.id;
     });
-    var fe=$('tf-fee');out.F=fe?parseMoney(fe):tfInt(TF.fee);
-    var left=out.F;
-    items.forEach(function(e,i){var f=i===items.length-1?left:Math.round(out.F*out.p[e.id]/(out.P||1));out.f[e.id]=f;left-=f;out.alloc[e.id]=out.p[e.id]+f});
-    out.T=out.P+out.F;return out;
+    t.stm.forEach(function(s){
+      s.items=t.exp.filter(function(e){return e.stm===s.id&&eConv(e)}).map(function(e){return e.id});
+      var tot=0;s.items.forEach(function(id){tot+=expById(t,id).final});s.total=tot;
+    });
+    t.stm=t.stm.filter(function(s){return s.items.length});
+  }
+  function stmAlloc(items,total){
+    var out={},sum=0,used=0,big=null;
+    items.forEach(function(e){sum+=e.amt});
+    items.forEach(function(e){var v=sum?Math.round(total*e.amt/sum):0;out[e.id]=v;used+=v;if(!big||e.amt>big.amt)big=e});
+    if(big)out[big.id]+=total-used;
+    return out;
+  }
+  function stmRate(t,cur,total,sum){
+    if(sum>0&&total>0){var nr=Math.round(total/sum);if(nr>0){t.rate[cur]=nr;t.rateAt=t.rateAt||{};t.rateAt[cur]=TODAY_ISO;RATES[cur]={v:nr,at:TODAY_ISO}}}
+  }
+  function tfRead(){['tot','aft','bef'].forEach(function(k){var el=$('tf-'+k);if(el)TF[k]=el.value})}
+  function tfInt(v){return parseInt(String(v==null?'':v).replace(/\D/g,''),10)||0}
+  function tfItems(t){
+    if(TF.edit){var s=stmById(t,TF.edit);return s?s.items.map(function(id){return expById(t,id)}):[]}
+    return tPending(t).filter(function(e){return e.acc===TF.acc&&TF.sel[e.id]===true});
+  }
+  function tfCalc(t){
+    var ed=TF.edit?stmById(t,TF.edit):null,a=acc(ed?ed.acc:TF.acc),cr=accIsCredit(a),items=tfItems(t),mode=TF.mode||'tot';
+    var r={items:items,a:a,cr:cr,ed:ed,cur:items.length?items[0].cur:'',sum:0,tam:0,total:0,bef:0,aft:0,hasAft:false};
+    items.forEach(function(e){r.sum+=e.amt;r.tam+=(e.tam||0)});
+    var te=$('tf-tot'),be=$('tf-bef'),ae=$('tf-aft');
+    var bs=be?be.value:TF.bef,as=ae?ae.value:TF.aft,ts=te?te.value:TF.tot;
+    r.bef=pmStr(bs);r.hasAft=String(as==null?'':as).trim()!=='';r.aft=pmStr(as);
+    if(mode==='bal')r.total=r.hasAft?(cr?r.aft-r.bef:r.bef-r.aft):0;
+    else r.total=tfInt(ts);
+    if(r.total<0)r.total=0;
+    r.alloc=stmAlloc(items,r.total);
+    return r;
   }
   function tfLive(){
-    var t=curTrip(),r=tfCalc(t),o=$('tf-out');if(!o)return;
-    r.items.forEach(function(e){var s=$('tf-r-'+e.id);if(s)s.textContent=(r.p[e.id]&&e.amt)?'Tỷ giá thực: 1 '+e.cur+' = '+Math.round(r.p[e.id]/e.amt).toLocaleString('vi-VN')+' ₫ (tạm tính '+(t.rate[e.cur]||0).toLocaleString('vi-VN')+')':''});
-    var diff=r.P-r.tam;
-    o.innerHTML=bro('Tổng gốc',fmtF(r.P))+bro('Phí chuyển đổi (chia chung)',fmtF(r.F))+bro('Tổng trừ trên sao kê',fmtF(r.T))+bro('Gốc so với tạm tính',(diff>0?'+':'')+fmtF(diff),diff>0?'neg':diff<0?'pos':'');
+    var t=curTrip(),o=$('tf-out');if(!o||!t)return;
+    var r=tfCalc(t);
+    if(!r.items.length){o.innerHTML='<div class="empty">Chọn ít nhất một khoản để chốt.</div>';return}
+    var now=r.a?dispBal(r.a):0,delta=r.ed?(r.total-r.ed.total):r.total,after=now+(r.cr?delta:-delta);
+    var h=bro('Tổng ngoại tệ đã chọn',fmtC(r.sum,r.cur))+bro('Tạm tính',fmtF(r.tam))+bro('Tổng chốt trên sao kê',fmtF(r.total));
+    if(r.total>0&&r.sum>0)h+=bro('Tỷ giá thực','1 '+r.cur+' = '+Math.round(r.total/r.sum).toLocaleString('vi-VN')+' ₫');
+    if(r.total>0&&r.tam){var diff=r.total-r.tam;h+=bro('Chốt so với tạm tính',(diff>0?'+':'')+fmtF(diff),diff>0?'neg':diff<0?'pos':'')}
+    if(r.total>0){
+      h+='<div class="cap" style="margin:10px 0 2px"><span>Phân bổ cho từng khoản</span></div>';
+      r.items.forEach(function(e){h+=bro(esc(e.title)+' <small>'+fmtC(e.amt,e.cur)+'</small>',fmtF(r.alloc[e.id]||0))});
+      if(r.a)h+=bro(esc(r.a.name)+' · '+dispLbl(r.a).toLowerCase()+' trong app',fmtF(now)+' → '+fmtF(after));
+    }
+    o.innerHTML=h;
   }
+  function tfAmtBox(id,label,val){return '<div class="amount"><label for="'+id+'">'+label+'</label><div class="field"><input id="'+id+'" class="money" inputmode="numeric" placeholder="0" value="'+esc(val==null?'':val)+'"><span class="cur">₫</span></div></div>'}
   function vTF(){
     var t=curTrip();if(!t)return head('Không tìm thấy');
-    var pend=tPending(t),h=head('Chốt sao kê · '+esc(t.name));
-    if(!pend.length)return h+'<div class="card empty">Không còn khoản thẻ nào đang tạm tính.</div>';
-    TF.vnd=TF.vnd||{};
-    h+='<p class="note" style="margin:0 2px 10px">Chọn các khoản có trên sao kê, nhập "VND gốc" của từng khoản đúng như sao kê (đã điền sẵn số tạm tính). Phí chuyển đổi nhập một ô chung ở dưới, app chia theo tỷ lệ gốc. Tỷ giá chỉ để tham khảo.</p>';
-    pend.forEach(function(e){
-      var on=TF.sel[e.id]!==false,v=TF.vnd[e.id]!=null?TF.vnd[e.id]:(e.tam?e.tam.toLocaleString('vi-VN'):'');
-      h+='<div class="card" style="margin-top:8px;padding:4px 10px 8px"><button type="button" class="row rowbtn" style="padding-left:0;padding-right:0" data-act="tfSel" data-a="'+e.id+'" aria-pressed="'+on+'"><span class="gsel" aria-hidden="true" style="pointer-events:none"><i class="tick" style="'+(on?'background:var(--accent);border-color:var(--accent);color:var(--accent-fg)':'')+'">'+(on?'✓':'')+'</i></span><div class="name"><div>'+esc(e.title)+'</div><small>'+fmtC(e.amt,e.cur)+' · tạm tính '+fmtF(e.tam||0)+'</small></div></button>';
-      if(on)h+='<div class="amount" style="margin-top:2px"><label for="tf-v-'+e.id+'">VND gốc theo sao kê</label><div class="field"><input id="tf-v-'+e.id+'" class="money tf-v" data-id="'+e.id+'" inputmode="numeric" placeholder="0" value="'+esc(v)+'"><span class="cur">₫</span></div><div class="note" id="tf-r-'+e.id+'" style="margin:4px 0 0"></div></div>';
-      h+='</div>';
-    });
-    h+='<div class="amount"><label for="tf-fee">Phí chuyển đổi trên sao kê (tổng, nếu có)</label><div class="field"><input id="tf-fee" class="money" inputmode="numeric" placeholder="0" value="'+esc(TF.fee||'')+'"><span class="cur">₫</span></div></div>';
+    stmEnsure(t);
+    var ed=TF.edit?stmById(t,TF.edit):null;
+    if(TF.edit&&!ed)TF={sel:{},mode:'tot'};
+    var h=head((ed?'Sửa lần chốt · ':'Chốt sao kê · ')+esc(t.name)),pend=tPending(t),mode=TF.mode||'tot',a=null;
+    if(ed)a=acc(ed.acc);
+    else{
+      if(!pend.length)return h+'<div class="card empty">Không còn khoản thẻ nào đang tạm tính.</div>';
+      var ids=[];pend.forEach(function(e){if(ids.indexOf(e.acc)<0)ids.push(e.acc)});
+      if(!TF.acc||ids.indexOf(TF.acc)<0){TF.acc=ids.length===1?ids[0]:null;TF.bef=undefined}
+      h+='<div class="sec" style="margin-top:4px"><h2>Chọn thẻ hoặc tài khoản</h2></div><div class="list">'+ids.map(function(id){
+        var x=acc(id),n=pend.filter(function(e){return e.acc===id}).length,on=TF.acc===id;
+        return '<button type="button" class="row rowbtn" data-act="tfAcc" data-a="'+esc(id)+'" aria-pressed="'+on+'"><div class="name"><div>'+esc(x?x.name:id)+'</div><small>'+(x?dispLbl(x)+' '+fmtF(dispBal(x))+' · ':'')+n+' khoản chờ chốt</small></div>'+(on?'<span class="amt" style="color:var(--accent);font-weight:700">✓</span>':'')+'</button>';
+      }).join('')+'</div>';
+      if(!TF.acc)return h+'<p class="note">Chọn thẻ để chọn các khoản cần chốt.</p>';
+      a=acc(TF.acc);
+    }
+    if(!a)return h+'<div class="card empty">Không tìm thấy tài khoản của lần chốt này.</div>';
+    var cr=accIsCredit(a);
+    if(TF.bef===undefined)TF.bef=numIn(dispBal(a));
+    h+='<div class="seg" style="margin-top:12px">'+[['tot','Nhập tổng'],['bal','Nhập số dư '+(cr?'thẻ':'tài khoản')]].map(function(x){return '<button type="button" data-act="tfMode" data-a="'+x[0]+'" aria-pressed="'+(mode===x[0])+'">'+x[1]+'</button>'}).join('')+'</div>';
+    if(ed){
+      h+='<div class="sec"><h2>Các khoản trong lần chốt</h2></div><div class="list">'+ed.items.map(function(id){var e=expById(t,id);return '<div class="row"><div class="name"><div>'+esc(e.title)+'</div><small>tạm tính '+fmtF(e.tam||0)+'</small></div><div class="amt num">'+fmtC(e.amt,e.cur)+'</div></div>'}).join('')+'</div><p class="note">Muốn đổi các khoản được chọn: hủy chốt rồi chốt lại. Ở đây chỉ sửa số chốt.</p>';
+    }else{
+      var list=pend.filter(function(e){return e.acc===TF.acc}),first=tfItems(t)[0],bc=first?first.cur:list[0].cur;
+      var cand=list.filter(function(e){return e.cur===bc}),allOn=cand.length&&cand.every(function(e){return TF.sel[e.id]===true});
+      h+='<div class="sec"><h2>Chọn khoản cần chốt</h2><button type="button" class="link" data-act="tfAll">'+(allOn?'Bỏ chọn':'Chọn hết '+bc)+'</button></div><div class="list">'+list.map(function(e){
+        var on=TF.sel[e.id]===true;
+        return '<button type="button" class="row rowbtn" data-act="tfSel" data-a="'+e.id+'" aria-pressed="'+on+'"><span class="gsel" aria-hidden="true" style="pointer-events:none"><i class="tick" style="'+(on?'background:var(--accent);border-color:var(--accent);color:var(--accent-fg)':'')+'">'+(on?'✓':'')+'</i></span><div class="name"><div>'+esc(e.title)+'</div><small>tạm tính '+fmtF(e.tam||0)+'</small></div><div class="amt num">'+fmtC(e.amt,e.cur)+'</div></button>';
+      }).join('')+'</div><p class="note">Mỗi lần chốt chỉ chọn các khoản cùng một ngoại tệ.</p>';
+    }
+    if(mode==='bal'){
+      h+=tfAmtBox('tf-bef',dispLbl(a)+' hiện trong app',TF.bef)+tfAmtBox('tf-aft',dispLbl(a)+' theo sao kê',TF.aft);
+      h+='<p class="note">Phát sinh = '+(cr?'dư nợ theo sao kê trừ dư nợ hiện trong app':'số dư hiện trong app trừ số dư theo sao kê')+'. App phân bổ phần phát sinh đó cho các khoản đã chọn theo tỷ lệ ngoại tệ. Chỉ đúng khi số trong app đang khớp sao kê trước và chưa thiếu giao dịch nào của thẻ.</p>';
+    }else{
+      h+=tfAmtBox('tf-tot','Tổng VND trên sao kê cho các khoản đã chọn',TF.tot);
+    }
     h+='<div class="card" style="margin-top:12px" id="tf-out"></div>';
-    h+='<p class="note">Phí là chi phí chung của chuyến: được chia cho từng khoản theo tỷ lệ gốc rồi chia cho mọi người cùng cách chia của khoản đó. Trên lịch sử tài khoản app ghi hai dòng cho mỗi khoản (gốc, phí) giống sao kê. Sau khi chốt, tỷ giá thực được lưu làm tỷ giá tạm tính cho các khoản sau.</p>';
-    h+='<button class="save" data-act="tfApply" type="button">Chốt các khoản đã chọn</button>';
+    h+='<p class="note">Phí chuyển đổi nằm trong số chốt, không tách riêng. Sau khi chốt, tỷ giá thực được lưu làm tỷ giá tạm tính cho các khoản sau, và mọi người trả lại bằng VND.</p>';
+    h+='<button class="save" data-act="tfApply" type="button">'+(ed?'Lưu lần chốt':'Chốt các khoản đã chọn')+'</button>';
     return h;
   }
   function tfApply(){
-    var t=curTrip(),r=tfCalc(t);
+    tfRead();
+    var t=curTrip(),r=tfCalc(t),ed=r.ed,mode=TF.mode||'tot';
     if(!r.items.length){toast('Chọn ít nhất một khoản.');return}
-    for(var i=0;i<r.items.length;i++)if(!r.p[r.items[i].id]){toast('Nhập VND gốc cho "'+r.items[i].title+'".');return}
-    var byC={};
+    if(!r.a){toast('Không tìm thấy tài khoản.');return}
+    if(r.total<=0){toast(mode==='bal'?'Nhập số dư theo sao kê, lớn hơn số hiện trong app.':'Nhập tổng VND trên sao kê.');return}
+    var b0=tBal(t,'VND'),stm=ed||{id:TXN++,acc:r.a.id,date:TODAY_ISO,cur:r.cur,items:[]};
+    if(ed)r.items.forEach(effRev);
+    stm.mode=mode;stm.items=r.items.map(function(e){return e.id});stm.total=r.total;stm.balBefore=(mode==='bal')?r.bef:null;delete stm.legacy;
     r.items.forEach(function(e){
-      var p=r.p[e.id],f=r.f[e.id];e.final=p+f;e.fee=f;e.gross=p;
-      if(e.acc&&acc(e.acc)){
-        effBal(e.acc,-p);(e.eff=e.eff||[]).push({acc:e.acc,d:-p,date:TODAY_ISO,adj:1,k:'g'});
-        if(f>0){effBal(e.acc,-f);e.eff.push({acc:e.acc,d:-f,date:TODAY_ISO,adj:1,k:'f'})}
-      }
-      var x=byC[e.cur]||(byC[e.cur]={a:0,v:0});x.a+=e.amt;x.v+=p;
+      var v=r.alloc[e.id]||0;e.final=v;e.stm=stm.id;delete e.fee;delete e.gross;
+      if(acc(e.acc)){effBal(e.acc,-v);(e.eff=e.eff||[]).push({acc:e.acc,d:-v,date:stm.date,adj:1,k:'g'})}
     });
-    t.rateAt=t.rateAt||{};
-    for(var c in byC){if(byC[c].a>0){var nr=Math.round(byC[c].v/byC[c].a);if(nr>0){t.rate[c]=nr;t.rateAt[c]=TODAY_ISO;RATES[c]={v:nr,at:TODAY_ISO}}}}
+    if(!ed){t.stm=t.stm||[];t.stm.push(stm)}
+    stmRate(t,r.cur,r.total,r.sum);
     tlSync(t);
-    TF={sel:{},vnd:{},fee:''};
-    toast('Đã chốt '+r.items.length+' khoản, trừ '+fmtF(r.T)+'. Đã chuyển sang phần VND của chuyến.');
+    var msg=ed?'Đã sửa lần chốt: '+fmtF(r.total)+'.':'Đã chốt '+r.items.length+' khoản, trừ '+fmtF(r.total)+'. Đã chuyển sang phần VND của chuyến.';
+    if(ed&&t.pay.some(function(p){return p.cur==='VND'})){
+      var b1=tBal(t,'VND'),ch=t.people.filter(function(p){return Math.abs((b1[p]||0)-(b0[p]||0))>=1}).map(function(p){var d=(b1[p]||0)-(b0[p]||0);return p+' '+(d>0?'+':'−')+nC(Math.abs(d),'VND')});
+      if(ch.length)msg+=' Số dư VND thay đổi: '+ch.join(', ')+'.';
+    }
+    TF={sel:{},mode:'tot'};
+    toast(msg);
     back();
+  }
+  /* tab Sao kê trong chi tiết chuyến đi */
+  function tStmView(t){
+    stmEnsure(t);
+    var h='',pend=tPending(t),open=t.status==='open';
+    if(open){
+      if(pend.length)h+='<button class="btn solid block" style="margin-top:12px" data-go="tripFix" data-a="'+t.id+'" type="button">Chốt sao kê ('+pend.length+' khoản chờ)</button>';
+      else h+='<div class="card empty" style="margin-top:12px">Không còn khoản nào chờ chốt.</div>';
+    }
+    var ids=[];t.exp.forEach(function(e){if((ePend(e)||eConv(e))&&acc(e.acc)&&ids.indexOf(e.acc)<0)ids.push(e.acc)});
+    if(ids.length){
+      h+='<div class="sec"><h2>Thẻ và tài khoản</h2></div>';
+      ids.forEach(function(id){
+        var a=acc(id),pi=t.exp.filter(function(e){return ePend(e)&&e.acc===id}),ci=t.exp.filter(function(e){return eConv(e)&&e.acc===id});
+        var byC={},tam=0,fin=0;pi.forEach(function(e){byC[e.cur]=(byC[e.cur]||0)+e.amt;tam+=(e.tam||0)});ci.forEach(function(e){fin+=e.final});
+        var pc=Object.keys(byC).map(function(c){return fmtC(byC[c],c)}).join(' + ');
+        h+='<div class="card" style="margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><b>'+esc(a.name)+'</b>'+(pi.length?'<span class="badge">'+pi.length+' khoản chờ chốt</span>':'<span class="badge">Đã chốt hết</span>')+'</div>';
+        if(pi.length)h+=bro('Tạm tính ('+pi.length+' khoản)',pc+' · ≈ '+fmtF(tam));
+        if(ci.length)h+=bro('Đã chốt ('+ci.length+' khoản)',fmtF(fin));
+        h+=bro(dispLbl(a)+' trong app','<b>'+fmtF(dispBal(a))+'</b>')+'</div>';
+      });
+    }
+    var sl=(t.stm||[]).slice().sort(function(x,y){return x.date<y.date?1:x.date>y.date?-1:y.id-x.id});
+    h+='<div class="sec"><h2>Các lần chốt ('+sl.length+')</h2></div>';
+    if(!sl.length)h+='<div class="card empty">Chưa có lần chốt nào.</div>';
+    else h+='<div class="list">'+sl.map(function(s){
+      var a=acc(s.acc),titles=s.items.map(function(id){return expById(t,id).title}),tl=titles.slice(0,2).join(', ')+(titles.length>2?' +'+(titles.length-2)+' khoản':'');
+      var bl='';if(s.balBefore!=null&&a){var cr=accIsCredit(a);bl='<br>'+dispLbl(a)+' '+fmtF(s.balBefore)+' → '+fmtF(cr?s.balBefore+s.total:s.balBefore-s.total)}
+      return '<button type="button" class="row rowbtn" data-act="stmOpen" data-a="'+s.id+'"><div class="name"><div>'+dmy(s.date)+' · '+esc(a?a.name:s.acc)+'</div><small>'+esc(tl)+bl+'</small></div><div class="amt num">'+fmtF(s.total)+'</div><span class="chev">›</span></button>';
+    }).join('')+'</div>';
+    h+='<p class="note">Bấm một lần chốt để xem chi tiết, sửa số chốt hoặc hủy chốt'+(open?'.':' (chuyến đã tất toán nên không sửa được).')+'</p>';
+    return h;
+  }
+  function stmSheet(id){
+    var t=curTrip(),s=stmById(t,id);if(!s)return;
+    var a=acc(s.acc),sum=0;s.items.forEach(function(i){sum+=expById(t,i).amt});
+    var b=kv('Thẻ / tài khoản',esc(a?a.name:s.acc))+kv('Ngày chốt',dmyFull(s.date))+kv('Cách chốt',s.legacy?'Chốt theo cách cũ':s.mode==='bal'?'Nhập số dư thẻ':'Nhập tổng')+kv('Tổng chốt','<b class="num">'+fmtF(s.total)+'</b>');
+    if(sum>0)b+=kv('Tỷ giá thực','1 '+s.cur+' = '+Math.round(s.total/sum).toLocaleString('vi-VN')+' ₫');
+    if(s.balBefore!=null&&a){var cr=accIsCredit(a);b+=kv(dispLbl(a)+' trước → sau',fmtF(s.balBefore)+' → '+fmtF(cr?s.balBefore+s.total:s.balBefore-s.total))}
+    b+=kv('Các khoản',s.items.map(function(i){var e=expById(t,i);return esc(e.title)+' '+fmtC(e.amt,e.cur)+' → '+fmtF(e.final)}).join('<br>'));
+    if(t.status==='open')b+='<div class="actions"><button class="btn" data-act="stmEdit" data-a="'+s.id+'" type="button">Sửa số chốt</button><button class="btn danger" data-act="stmCancelAsk" data-a="'+s.id+'" type="button">Hủy chốt</button></div>';
+    sheet('Lần chốt '+dmy(s.date),b);
+  }
+  function stmCancelAsk(id){
+    var t=curTrip(),s=stmById(t,id);if(!s)return;
+    var note=t.pay.some(function(p){return p.cur==='VND'})?' Chuyến đã có thanh toán bằng VND; số dư từng người sẽ được tính lại nên có thể xuất hiện chênh lệch.':'';
+    sheet('Hủy lần chốt?','<div class="warnbox">Các khoản trong lần chốt này quay về tạm tính bằng ngoại tệ, số tiền đã trừ ở tài khoản được hoàn lại.'+note+'</div><div class="actions"><button class="btn" data-act="closeSheet" type="button">Giữ nguyên</button><button class="btn danger" data-act="stmCancelDo" data-a="'+id+'" type="button">Hủy chốt</button></div>');
+  }
+  function stmCancelDo(id){
+    var t=curTrip(),s=stmById(t,id);if(!s)return;
+    s.items.forEach(function(i){var e=expById(t,i);effRev(e);e.final=null;delete e.stm;delete e.fee;delete e.gross});
+    t.stm=t.stm.filter(function(x){return x.id!==id});
+    tlSync(t);closeSheet();toast('Đã hủy lần chốt. Các khoản quay về tạm tính.');draw();
   }
 
   /* ----- Tổng kết (kiểu sổ chung, xếp dọc cho màn hình hẹp) ----- */
@@ -3570,7 +3719,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.18',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.19',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
