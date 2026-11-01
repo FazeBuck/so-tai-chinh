@@ -1537,6 +1537,7 @@ body.navhide .tabbar{box-shadow:none}
     var edit=st.editId,old=edit?findTx(edit):null;
     tx.time=(old&&old.time)?old.time:nowTime();
     if(edit){removeTx(edit)}
+    else if(t==='chi')LAST_TRIP=null;
     addTx(tx);
     var a=acc(tx.acc),pv=tx.person?pNet(tx.person):0,pm=tx.person?(pv>0?tx.person+' nợ bạn '+fmt(pv):pv<0?'Bạn giữ hộ '+tx.person+' '+fmt(-pv):tx.person+' đã tất toán')+'.':'';
     if(edit){toast(pm?'Đã cập nhật. '+pm:'Đã cập nhật.');stack.pop();draw('pop',cur().sy||0);return}
@@ -1718,6 +1719,7 @@ body.navhide .tabbar{box-shadow:none}
       tripCommit(t,e);LAST_TRIP={id:t.id,ts:Date.now()};
       return afterSave(st.tripEditId?'Đã cập nhật khoản chi.':'Đã lưu vào chuyến '+t.name+'. '+sp.payer+' trả '+fmtC(a,sp.cur)+'.');
     }
+    LAST_TRIP=null;
     var time=nowTime(),own=sh[ME]||0,others=sp.who.filter(function(w){return w!==ME&&(sh[w]||0)>0}),names=others.join(', '),tot=0;
     if(own>0)addTx({type:'chi',amount:own,acc:st.acc,date:st.date,cat:st.cat,note:(st.memo?st.memo+' · ':'')+'chia với '+names,time:time});
     others.forEach(function(w){tot+=sh[w];addTx({type:'ung',amount:sh[w],acc:st.acc,person:canonPerson(w),date:st.date,note:st.memo||'Chia tiền',time:time})});
@@ -3733,7 +3735,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.21',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.22',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,profile:{id:PROF.cur,name:profName()},savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
