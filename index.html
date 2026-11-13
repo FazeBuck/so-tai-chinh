@@ -299,7 +299,9 @@ button.mini:active{background:var(--accent-soft)}
 .kbkey.done{color:var(--accent);border-color:transparent;background:none;font-size:15px;min-width:0}
 .kbkey:active{background:var(--accent-soft)}
 .kbbar .sp{flex:1}
-.kbup .zchip{display:none}
+.kbup .zchip,.kbup .mchip{display:none}
+.kbl{display:flex;gap:8px;align-items:center}
+.kbkey.unit{font-size:15px;padding:0 12px}
 .avs{display:flex;gap:10px;flex-wrap:wrap}
 .avw{display:inline-flex;flex-direction:column;align-items:center;gap:4px;min-width:52px}
 .avw small{font-size:11px;color:var(--ink-2);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -627,7 +629,7 @@ body.navhide .tabbar{box-shadow:none}
 </nav>
 <div id="sheetHost"></div>
 <div id="pvHost"></div>
-<div class="kbbar" id="kbBar" hidden><button type="button" class="kbkey" data-act="zeros" aria-label="Thêm ba số 0">000</button><span class="sp"></span><button type="button" class="kbkey done" data-act="kbDone">Xong</button></div>
+<div class="kbbar" id="kbBar" hidden><span class="kbl" id="kbL"><button type="button" class="kbkey" data-act="zeros" aria-label="Thêm ba số 0">000</button></span><span class="sp"></span><button type="button" class="kbkey done" data-act="kbDone">Xong</button></div>
 <div id="toastHost"></div>
 
 <script>
@@ -1440,8 +1442,10 @@ body.navhide .tabbar{box-shadow:none}
     if(tr&&tr.ccy.length)h+=tCcys(tr).map(function(c){return '<button type="button" class="chip" data-act="spCur" data-a="'+c+'" aria-pressed="'+(st.sp.cur===c)+'">'+c+'</button>'}).join('');
     h+='<button type="button" class="chip zchip" data-act="zeros" aria-label="Thêm ba số 0">000</button>';
     if(!fgn){
-      if(amt>0&&amt<1000)h+='<button type="button" class="chip soft" data-act="mul" data-a="1000">'+amt+' nghìn = '+fmtF(amt*1000)+'</button><button type="button" class="chip soft" data-act="mul" data-a="1000000">'+amt+' triệu = '+fmtF(amt*1e6)+'</button>';
+      if(amt>0&&amt<1000)h+='<button type="button" class="chip soft mchip" data-act="mul" data-a="1000">'+amt+' nghìn = '+fmtF(amt*1000)+'</button><button type="button" class="chip soft mchip" data-act="mul" data-a="1000000">'+amt+' triệu = '+fmtF(amt*1e6)+'</button>';
     }
+    /* 1.0.23: thanh trên bàn phím: số 1–999 thì hiện "x nghìn" / "x triệu" thay chỗ phím 000 */
+    var kl=$('kbL');if(kl){var kh=(!fgn&&amt>0&&amt<1000)?'<button type="button" class="kbkey unit" data-act="mul" data-a="1000">'+amt+' nghìn</button><button type="button" class="kbkey unit" data-act="mul" data-a="1000000">'+amt+' triệu</button>':'<button type="button" class="kbkey" data-act="zeros" aria-label="Thêm ba số 0">000</button>';if(kl._h!==kh){kl.innerHTML=kh;kl._h=kh}}
     if(st.type==='nhan'||st.type==='tra'){var pc=curPName(),pb=pc&&P[pc]?pDirBal(pc,st.type):0;if(pb>0&&amt!==pb)h+='<button type="button" class="chip soft allchip" data-act="payAll" data-a="'+pb+'">'+(st.type==='tra'?'Trả hết ':'Nhận hết ')+pb.toLocaleString('vi-VN')+'</button>'}
     $('quick').innerHTML=h;$('quick').hidden=!h;
     $('words').textContent=(!fgn&&amt)?'Bằng chữ: '+words(amt):'';
@@ -2697,7 +2701,7 @@ body.navhide .tabbar{box-shadow:none}
   document.addEventListener('change',function(e){if(e.target.id==='date'){st.dateManual=true;st.date=e.target.value}});
   function act(name,a){
     switch(name){
-      case 'zeros':{var fz=spForeign(),z=fz?fgnNum($('amount').value):parseMoney($('amount'));if(!z)return;if(fz){$('amount').value=fmtAmtIn(z*1000,st.sp.cur);st.amount=z*1000}else setAmount(z*1000);updateAmtUI();applyAuto();if(document.body.classList.contains('kbup'))$('amount').focus();return}
+      case 'zeros':{var fz=spForeign(),z=fz?fgnNum($('amount').value):parseMoney($('amount'));if(!z)return;if(fz){$('amount').value=fmtAmtIn(z*1000,st.sp.cur);st.amount=z*1000}else setAmount(z*1000);updateAmtUI();applyAuto();var az=$('amount');if(az)az.blur();kbShow(false);return}
       case 'spKind':{readForm();spRead();var wasF=spForeign(),kept=st.amount;
         if(a==='none'||a==='free'){st.kind=a;st.tripId=null}else{st.kind='trip';st.tripId=a}
         st.tripAuto=false;spInit();if(wasF||st.sp.cur!=='VND'){var nc=st.sp.cur,kr=nc==='VND'?Math.round(kept):tRound(kept,nc);$('amount').value=kr?fmtAmtIn(kr,nc):'';st.amount=kr}
@@ -2800,7 +2804,7 @@ body.navhide .tabbar{box-shadow:none}
         else if(gids.every(function(x){return gc.indexOf(x)>=0})){gc=gc.filter(function(x){return gids.indexOf(x)<0})}
         else{gids.forEach(function(x){if(gc.indexOf(x)<0)gc.push(x)})}
         balSet(gc);$('bbody').innerHTML=balAccBody();return}
-      case 'mul':{var z2=parseMoney($('amount'));if(!z2)return;setAmount(z2*(+a));updateAmtUI();return applyAuto()}
+      case 'mul':{var z2=parseMoney($('amount'));if(!z2)return;setAmount(z2*(+a));updateAmtUI();applyAuto();var am=$('amount');if(am)am.blur();kbShow(false);return}
       case 'detR':{var rr=rangeOf(R.p,R.m);RD={title:rr.label+' · '+(a==='chi'?'Chi':'Thu'),kind:a,from:rr.from,to:rr.to,cats:[],accs:[],desc:'Tất cả hạng mục · Tất cả tài khoản'};return go('rdet')}
       case 'detG':{var r3=rangeOf(R.p,R.m);RD={title:r3.label+' · '+a,kind:R.kind,from:r3.from,to:r3.to,cats:catKeysFor(R.kind,a),accs:[],desc:(R.kind==='chi'?'Nhóm ':'Nguồn ')+a+' · Tất cả tài khoản'};return go('rdet')}
       case 'detA':{var its=aItems(),sk=aSel(its),d0=its.filter(function(x){return x.key===sk})[0];var whole=(a==='all'||!d0);RD={title:(whole?aRangeShort():d0.label)+' · '+(A.kind==='chi'?'Chi':'Thu'),kind:A.kind,from:whole?its[0].from:d0.from,to:whole?its[its.length-1].to:d0.to,cats:A.cats.slice(),accs:A.accs.slice(),desc:filterLabelCats()+' · '+filterLabelAccs()};return go('rdet')}
@@ -3735,7 +3739,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.22',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.23',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,profile:{id:PROF.cur,name:profName()},savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
