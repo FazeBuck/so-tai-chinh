@@ -852,6 +852,7 @@ body.navhide .tabbar{box-shadow:none}
     /* 1.0.9: xóa danh sách vẽ dần cũ TRƯỚC khi dựng màn mới (trước đây xóa sau nên màn Chi tiết báo cáo chỉ hiện 60 dòng) */
     for(var lk in LZ)delete LZ[lk];
     kbShow(false);
+    fixTyping();
     switch(c.v){
       case 'home':html=vHome();break;
       case 'acc':html=vAcc();break;
@@ -2574,7 +2575,10 @@ body.navhide .tabbar{box-shadow:none}
     sheetCb=null;
     $('sheetHost').innerHTML='<div class="sheet-bg" id="bg"><div class="sheet" role="dialog" aria-label="'+esc(title)+'"><header><span>'+esc(title)+'</span><button type="button" data-act="closeSheet">Đóng</button></header><div class="body">'+body+'</div></div></div>';
   }
-  function closeSheet(){var n=$('bg');if(!n)return;if(sheetCb){var f=sheetCb;sheetCb=null;f()}n.classList.add('closing');n.removeAttribute('id');setTimeout(function(){if(n.parentNode)n.parentNode.removeChild(n)},190)}
+  /* 1.0.24: trên iPhone, chạm nút Lưu không lấy focus nên ô nhập trong sheet vẫn đang focus; gỡ sheet khỏi trang thì Safari không báo focusout,
+     body.typing kẹt lại làm thanh menu dưới bị ẩn. Nên trước khi đóng sheet phải bỏ focus ô nhập và gỡ cờ typing. */
+  function unType(){var ae=document.activeElement;if(ae&&ae!==document.body&&ae.blur)try{ae.blur()}catch(_){}document.body.classList.remove('typing');kbShow(false)}
+  function closeSheet(){var n=$('bg');if(!n)return;if(n.contains(document.activeElement))unType();if(sheetCb){var f=sheetCb;sheetCb=null;f()}n.classList.add('closing');n.removeAttribute('id');setTimeout(function(){if(n.parentNode)n.parentNode.removeChild(n);fixTyping()},190)}
   function toast(msg){$('toastHost').innerHTML='<div class="toast" role="status">'+esc(msg)+'</div>';clearTimeout(toast.t);toast.t=setTimeout(function(){$('toastHost').innerHTML=''},3200)}
   function kv(a,b){return '<div class="kv"><span>'+a+'</span><span>'+b+'</span></div>'}
 
@@ -3716,6 +3720,10 @@ body.navhide .tabbar{box-shadow:none}
   function isTyping(el){return el&&(el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&!/^(checkbox|radio|button|submit|file|range|color|date|month|time)$/.test(el.type)))}
   document.addEventListener('focusin',function(e){if(isTyping(e.target))document.body.classList.add('typing')});
   document.addEventListener('focusout',function(){setTimeout(function(){if(!isTyping(document.activeElement))document.body.classList.remove('typing')},120)});
+  /* 1.0.24: lưới an toàn: ô đang focus đã bị gỡ khỏi trang (hoặc không còn ô nào) thì bỏ cờ typing */
+  function fixTyping(){var ae=document.activeElement;if(document.body.classList.contains('typing')&&(!isTyping(ae)||!document.documentElement.contains(ae)))document.body.classList.remove('typing')}
+  document.addEventListener('touchend',function(){setTimeout(fixTyping,350)},{passive:true});
+  document.addEventListener('visibilitychange',fixTyping);
   function setTabH(){document.documentElement.style.setProperty('--tabh',$('tabbar').offsetHeight+'px')}
   window.addEventListener('resize',setTabH);
   var tx0=null;
@@ -3739,7 +3747,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.23',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.24',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,profile:{id:PROF.cur,name:profName()},savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
