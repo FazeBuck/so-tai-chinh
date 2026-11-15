@@ -14,6 +14,7 @@
 <meta name="theme-color" content="#0B1426" media="(prefers-color-scheme: dark)">
 <meta name="format-detection" content="telephone=no">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>/* 1.0.25: khóa Face ID, che nội dung ngay khi mở app */try{(function(){var u=+sessionStorage.getItem('stc-unl')||0;sessionStorage.removeItem('stc-unl');if(localStorage.getItem('stc-lock')&&!(Date.now()-u<15000))document.documentElement.classList.add('locked')})()}catch(e){}</script>
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}*{-webkit-tap-highlight-color:transparent}html{background:#F3F1EC}@media (prefers-color-scheme:dark){html{background:#0B1426}}html,body{height:100%;overflow:hidden;overscroll-behavior:none}#scr{position:fixed;left:0;right:0;top:0;bottom:0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}@media print{html,body{height:auto;overflow:visible}#scr{position:static;overflow:visible}}</style>
 <style>#subseg{margin-top:8px}.pchip{display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1.25;padding:8px 14px!important;text-align:left}.pchip small{font-weight:500;font-size:12px;color:var(--ink-3)}.pchip[aria-pressed="true"] small{color:inherit;opacity:.85}.overw{color:var(--neg);font-weight:600}</style>
@@ -616,6 +617,21 @@ body.navhide .tabbar{box-shadow:none}
 .pv .zm span{min-width:50px;text-align:center;font-size:14px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:no-preference){.pv{animation:pvIn .22s ease-out}.pv.closing{animation:pvOut .18s ease-in forwards}@keyframes pvIn{from{opacity:0;transform:translateY(16px)}}@keyframes pvOut{to{opacity:0;transform:translateY(16px)}}}
 .pl.a-sr,.pl.a-sl{display:inline-block}
+/* 1.0.25: màn khóa Face ID */
+#lock{position:fixed;inset:0;z-index:10000;background:var(--bg);display:none;align-items:center;justify-content:center;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+html.locked #lock,html.shield #lock{display:flex}
+html.locked #scr,html.locked #tabbar,html.locked #sheetHost,html.locked #pvHost,html.locked #kbBar,html.locked #nscrim,
+html.shield #scr,html.shield #tabbar,html.shield #sheetHost,html.shield #pvHost,html.shield #kbBar,html.shield #nscrim{visibility:hidden}
+html.shield:not(.locked) #lock .lk-act{visibility:hidden}
+.lk-in{width:100%;max-width:320px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.lk-ic{width:76px;height:76px;border-radius:18px;box-shadow:0 8px 22px -12px rgba(22,33,58,.5)}
+.lk-t{margin-top:16px;font-size:20px;font-weight:800;color:var(--ink)}
+.lk-s{margin-top:6px;font-size:14px;color:var(--ink-3);min-height:20px}
+.lk-act{width:100%;margin-top:28px}
+.lk-act .save{display:flex;align-items:center;justify-content:center;gap:10px}
+.lk-act .save svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.lk-link{margin-top:14px;border:0;background:none;color:var(--link);font:inherit;font-size:14px;font-weight:600;padding:8px}
+.lk-link[hidden]{display:none}
 </style>
 
 <div id="scr"><div class="app"><div id="screen"></div></div></div>
@@ -631,6 +647,7 @@ body.navhide .tabbar{box-shadow:none}
 <div id="pvHost"></div>
 <div class="kbbar" id="kbBar" hidden><span class="kbl" id="kbL"><button type="button" class="kbkey" data-act="zeros" aria-label="Thêm ba số 0">000</button></span><span class="sp"></span><button type="button" class="kbkey done" data-act="kbDone">Xong</button></div>
 <div id="toastHost"></div>
+<div id="lock" role="dialog" aria-modal="true" aria-label="App đang khóa"><div class="lk-in"><img src="icons/icon-180.png" alt="" class="lk-ic"><div class="lk-t">Sổ Tài Chính</div><div class="lk-s" id="lkMsg" role="status">Đã khóa</div><div class="lk-act"><button class="save" id="lkBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9v1.5M15 9v1.5M12 9v4h-1M9.5 16a3.5 3.5 0 0 0 5 0"/></svg><span>Mở khóa bằng Face ID</span></button><button class="lk-link" id="lkReset" type="button" hidden>Không mở được? Thiết lập lại khóa</button></div></div></div>
 
 <script>
 (function(){
@@ -2082,7 +2099,7 @@ body.navhide .tabbar{box-shadow:none}
     h+=profSection();
     h+='<div class="list"><button type="button" class="row rowbtn" data-go="trips"><div class="name"><div>Chuyến đi</div><small>Chia tiền nhóm, nhiều loại tiền, tổng kết</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="cats"><div class="name"><div>Hạng mục</div><small>Thêm, sửa nhóm và hạng mục</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="budget"><div class="name"><div>Hạn mức chi</div><small>Theo tháng và theo năm</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="people"><div class="name"><div>Người ứng hộ, giữ hộ</div><small>Đang theo dõi, đã tất toán, ẩn, gộp</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="backup"><div class="name"><div>Sao lưu và khôi phục</div><small>Google Drive · '+(gsOn()?'Tự động':'Chưa thiết lập')+'</small></div><span class="chev">›</span></button><button type="button" class="row rowbtn" data-go="hist"><div class="name"><div>Lịch sử giao dịch</div><small>Xem, tìm, sửa, xóa</small></div><span class="chev">›</span></button></div>';
     h+='<div class="sec"><h2>Giao diện</h2></div>'+themePicker();
-    h+='<div class="sec"><h2>Cài đặt</h2></div><div class="list">'+switchRow('Ẩn số tiền','Che các con số trên màn hình','hide',S.hide)+switchRow('Khóa bằng Face ID','Hỏi Face ID khi mở app','faceid',S.faceid)+'</div>';
+    h+='<div class="sec"><h2>Cài đặt</h2></div><div class="list">'+switchRow('Ẩn số tiền','Che các con số trên màn hình','hide',S.hide)+switchRow('Khóa bằng Face ID',LOCK?'Đang bật · cài cho cả app, mọi profile':'Hỏi Face ID khi mở app','lockTog',!!LOCK)+(LOCK?'<button type="button" class="row rowbtn" data-act="lockAfter"><div class="name"><div>Khóa lại khi rời app</div><small>'+lkAfterLabel(LOCK.after)+'</small></div><span class="chev">›</span></button>':'')+'</div>';
     h+='<p class="note">'+(S.demo?'Đang dùng dữ liệu mẫu. Vào Sao lưu và khôi phục, chọn Khôi phục từ file để nạp dữ liệu thật.':'Dữ liệu lưu trên máy này. Nhớ sao lưu thường xuyên.')+'</p><p class="note">Phiên bản '+APP_VER+'</p>';
     return h;
   }
@@ -2816,7 +2833,9 @@ body.navhide .tabbar{box-shadow:none}
       case 'closeSheet':return closeSheet();
       case 'hide':S.hide=!S.hide;return draw();
       case 'theme':THEME=a;try{localStorage.setItem('stc-theme',a)}catch(e){}applyTheme();return draw();
-      case 'faceid':S.faceid=!S.faceid;return draw();
+      case 'faceid':case 'lockTog':return lockToggle();
+      case 'lockAfter':return lockAfterSheet();
+      case 'lockAfterSet':if(LOCK){LOCK.after=+a;lockSave()}closeSheet();return draw();
       case 'rep':return setTab('rep');
       case 'allCats':return catSheet();
       case 'save':return saveTx();
@@ -3747,7 +3766,7 @@ body.navhide .tabbar{box-shadow:none}
   }
   var fitQ=0;function fitSoon(){if(fitQ)return;fitQ=requestAnimationFrame(function(){fitQ=0;fitNums()})}
   try{new MutationObserver(fitSoon).observe(document.body,{childList:true,subtree:true,characterData:true});window.addEventListener('resize',fitSoon);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitSoon)}catch(e){}
-  var APP_VER='1.0.24',DBN='so-tai-chinh',KEY='state';
+  var APP_VER='1.0.25',DBN='so-tai-chinh',KEY='state';
   /* out=true: bản gửi ra ngoài (Drive, file) — bỏ mã bí mật và thiết lập riêng của máy */
   function snapshot(out){var s0=S;if(out){s0={};for(var k in S)if(k!=='gsKey'&&k!=='gsUrl'&&k!=='bkErr'&&k!=='driveFolder')s0[k]=S[k]}return {app:'so-tai-chinh',ver:1,profile:{id:PROF.cur,name:profName()},savedAt:dmyFull(todayISO())+' '+nowTime(),state:{S:s0,CATS:CATS,FAV:FAV,accounts:accounts,BUD:BUD,BUDY:BUDY,owed:owed,held:held,P:P,txs:txs,nextId:nextId,TRIPS:TRIPS,TXN:TXN,FW:FW,RATES:RATES,LAST_TRIP:LAST_TRIP}}}
   function restore(d){
@@ -3835,7 +3854,7 @@ body.navhide .tabbar{box-shadow:none}
       GBUSY=true;
       pre=Promise.race([gUpload().then(function(){S.bkSig=dataSig();S.bkErr='';S.last=dmyFull(todayISO())+' '+nowTime()},function(){}),new Promise(function(r){setTimeout(r,8000)})]).then(function(){GBUSY=false});
     }
-    pre.then(function(){return idbPut(JSON.stringify(snapshot().state))}).then(function(){PROF.cur=id;return idbPutK('profiles',PROF)}).then(function(){location.reload()},function(){toast('Không chuyển được profile.')});
+    pre.then(function(){return idbPut(JSON.stringify(snapshot().state))}).then(function(){PROF.cur=id;return idbPutK('profiles',PROF)}).then(function(){try{if(LOCK)sessionStorage.setItem('stc-unl',String(Date.now()))}catch(e){}location.reload()},function(){toast('Không chuyển được profile.')});
   }
   function profRenameAsk(id){
     var p=profById(id);if(!p)return;
@@ -3873,6 +3892,90 @@ body.navhide .tabbar{box-shadow:none}
       if(still&&n-lt<320&&!(e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]'))){e.preventDefault();var b=e.target.closest&&e.target.closest('button,[data-act],a,summary,label');if(b)b.click()}
       lt=still?n:0},{passive:false});
     document.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false})})();
+
+  /* ===== 1.0.25: Khóa Face ID (WebAuthn, passkey của iPhone) =====
+     Cài đặt cho cả app (không theo profile, không nằm trong bản sao lưu): localStorage 'stc-lock' + kho kv 'lock'.
+     LOCK={id: credential id (base64url), after: số giây được rời app trước khi khóa lại}. */
+  var LOCK=null,LK_BUSY=false,LK_HID=0,LK_FAIL=0;
+  try{LOCK=JSON.parse(localStorage.getItem('stc-lock')||'null')}catch(e){LOCK=null}
+  function b64u(buf){var s='',b=new Uint8Array(buf);for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+  function ub64u(s){s=String(s).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var r=atob(s),b=new Uint8Array(r.length);for(var i=0;i<r.length;i++)b[i]=r.charCodeAt(i);return b}
+  function lkRnd(n){var b=new Uint8Array(n);crypto.getRandomValues(b);return b}
+  function lkUid(){var u='';try{u=localStorage.getItem('stc-lock-uid')||''}catch(e){}if(!u){u=b64u(lkRnd(16));try{localStorage.setItem('stc-lock-uid',u)}catch(e){}}return ub64u(u)}
+  function lockSave(){try{if(LOCK)localStorage.setItem('stc-lock',JSON.stringify(LOCK));else localStorage.removeItem('stc-lock')}catch(e){}try{idbPutK('lock',LOCK?JSON.stringify(LOCK):'').catch(function(){})}catch(e){}}
+  function lkAfterLabel(n){n=+n||0;return n===0?'Ngay khi rời app':n<60?n+' giây':(n/60)+' phút sau khi rời app'}
+  function lkCanUse(){return !!(window.PublicKeyCredential&&navigator.credentials&&window.isSecureContext)}
+  /* Tạo passkey cho app. Dùng cùng user.id mỗi lần để iPhone thay passkey cũ thay vì tạo thêm. */
+  function lkCreate(){
+    return navigator.credentials.create({publicKey:{rp:{name:'Sổ Tài Chính',id:location.hostname},user:{id:lkUid(),name:'Khóa app Sổ Tài Chính',displayName:'Khóa app Sổ Tài Chính'},challenge:lkRnd(32),
+      pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,attestation:'none'}})
+      .then(function(c){if(!c||!c.rawId)throw new Error('none');return b64u(c.rawId)});
+  }
+  /* Hỏi Face ID (iPhone tự chuyển sang mật mã máy nếu Face ID không nhận) */
+  function lkVerify(){
+    return navigator.credentials.get({publicKey:{challenge:lkRnd(32),rpId:location.hostname,allowCredentials:[{type:'public-key',id:ub64u(LOCK.id)}],userVerification:'required',timeout:60000}})
+      .then(function(c){if(!c||b64u(c.rawId)!==LOCK.id)throw new Error('id');var ad=new Uint8Array(c.response.authenticatorData);if(!(ad[32]&4))throw new Error('uv');return true});
+  }
+  function isLocked(){return document.documentElement.classList.contains('locked')}
+  function lkMsg(t){var m=$('lkMsg');if(m)m.textContent=t}
+  function lkShow(){var r=document.documentElement;r.classList.add('locked');r.classList.remove('shield');try{unType()}catch(e){}lkMsg('Đã khóa');var x=$('lkReset');if(x)x.hidden=LK_FAIL<1}
+  function lkOpen(){LK_FAIL=0;var r=document.documentElement;r.classList.remove('locked','shield');var x=$('lkReset');if(x)x.hidden=true;try{setTabH()}catch(e){}}
+  function lkTry(auto){
+    if(LK_BUSY||!LOCK||!isLocked())return;
+    if(!lkCanUse()){lkMsg('Máy này không hỏi được Face ID.');LK_FAIL++;$('lkReset').hidden=false;return}
+    LK_BUSY=true;lkMsg('Đang chờ Face ID...');
+    lkVerify().then(function(){LK_BUSY=false;lkOpen()},function(e){LK_BUSY=false;
+      var n=e&&e.name;
+      if(auto&&n==='NotAllowedError'){lkMsg('Bấm nút bên dưới để mở khóa');return}
+      LK_FAIL++;lkMsg(n==='NotAllowedError'?'Chưa mở được khóa. Bấm để thử lại.':'Không hỏi được Face ID. Bấm để thử lại.');
+      $('lkReset').hidden=false});
+  }
+  /* Thiết lập lại: tạo passkey mới. iPhone vẫn bắt Face ID hoặc mật mã máy, nên chỉ chủ máy làm được. */
+  function lkReset(){
+    if(LK_BUSY||!LOCK)return;
+    if(!lkCanUse()){lkMsg('Máy này không hỗ trợ passkey nên không thiết lập lại được.');return}
+    LK_BUSY=true;lkMsg('Xác thực bằng Face ID hoặc mật mã iPhone...');
+    lkCreate().then(function(id){LK_BUSY=false;LOCK.id=id;lockSave();lkOpen();toast('Đã thiết lập lại khóa Face ID.')},function(e){LK_BUSY=false;lkMsg(e&&e.name==='NotAllowedError'?'Đã hủy. App vẫn khóa.':'Không thiết lập lại được.')});
+  }
+  function lockToggle(){
+    if(LK_BUSY)return;
+    if(LOCK){
+      if(!lkCanUse()){LOCK=null;lockSave();draw();return toast('Đã tắt khóa Face ID.')}
+      LK_BUSY=true;
+      lkVerify().then(function(){LK_BUSY=false;LOCK=null;lockSave();draw();toast('Đã tắt khóa Face ID.')},function(){LK_BUSY=false;toast('Chưa xác thực được, khóa vẫn bật.')});
+      return;
+    }
+    if(!lkCanUse())return toast(window.isSecureContext?'Máy này không hỗ trợ Face ID cho web app.':'Cần mở app từ link https (GitHub) mới bật được Face ID.');
+    LK_BUSY=true;
+    lkCreate().then(function(id){LK_BUSY=false;LOCK={id:id,after:60};lockSave();draw();toast('Đã bật khóa Face ID.')},
+      function(e){LK_BUSY=false;var n=e&&e.name;toast(n==='NotAllowedError'?'Đã hủy, khóa chưa bật.':n==='InvalidStateError'?'Đã có khóa cho app này, thử lại một lần nữa.':'Không bật được Face ID trên máy này.')});
+  }
+  function lockAfterSheet(){
+    if(!LOCK)return;
+    var opts=[[0,'Ngay khi rời app'],[60,'Sau 1 phút'],[300,'Sau 5 phút'],[900,'Sau 15 phút']],b='<div class="list">';
+    opts.forEach(function(o){var on=(+LOCK.after||0)===o[0];b+='<button type="button" class="row rowbtn" data-act="lockAfterSet" data-a="'+o[0]+'"><div class="name"><div>'+o[1]+'</div></div>'+(on?'<span class="badge">Đang chọn</span>':'')+'</button>'});
+    b+='</div><p class="note">Mở app lần đầu luôn hỏi Face ID. Khi chuyển sang app khác, màn hình được che lại để số tiền không hiện trong danh sách app đang mở.</p>';
+    sheet('Khóa lại khi rời app',b);
+  }
+  (function(){
+    var bt=$('lkBtn'),rs=$('lkReset');
+    if(bt)bt.addEventListener('click',function(){lkTry(false)});
+    if(rs)rs.addEventListener('click',lkReset);
+    /* Cài đặt khóa trong localStorage bị iPhone xóa nhưng còn trong IndexedDB: khôi phục và khóa lại */
+    if(window.indexedDB)idbGetK('lock').then(function(v){
+      var k=null;try{k=v?JSON.parse(v):null}catch(e){}
+      if(LOCK&&!k)lockSave();
+      else if(!LOCK&&k&&k.id){LOCK=k;lockSave();lkShow();setTimeout(function(){lkTry(true)},300)}
+    },function(){});
+    if(!LOCK)document.documentElement.classList.remove('locked');
+    else if(isLocked())setTimeout(function(){lkTry(true)},300);
+    document.addEventListener('visibilitychange',function(){
+      if(!LOCK)return;var r=document.documentElement;
+      if(document.visibilityState==='hidden'){if(!isLocked()&&!LK_BUSY){LK_HID=Date.now();r.classList.add('shield')}}
+      else{r.classList.remove('shield');if(!isLocked()&&LK_HID&&Date.now()-LK_HID>=(+LOCK.after||0)*1000)lkShow();LK_HID=0;
+        if(isLocked()&&!LK_BUSY)setTimeout(function(){lkTry(true)},350)}
+    });
+  })();
   function start(){newAddState();setTabH();draw();setTabH();setTimeout(function(){try{gBackup(false)}catch(e){}},3000)}
   (window.indexedDB?idbGetK('profiles').then(function(r){if(r&&r.list&&r.list.length)PROF=r;if(!profById(PROF.cur))PROF.cur='main';KEY=profKey(PROF.cur);return idbGet()}):Promise.reject()).then(function(v){
     if(v){restore(JSON.parse(v))}else if(PROF.cur!=='main'){restore(profNewState(null))}else{seed();seedTrips();S.demo=true}
